@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2015 Intel Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.cloudera.director.openstack.nova;
 
 import com.cloudera.director.spi.v1.compute.ComputeInstanceTemplate.ComputeInstanceTemplateConfigurationPropertyToken;
@@ -33,13 +48,13 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
      /**
       * The IDs of the security groups (comma separated).
       */
-     SECURITY_GROUP_IDS(new SimpleConfigurationPropertyBuilder()
-    		 .configKey("securityGroupIds")
-    		 .name("Security group IDs")
+     SECURITY_GROUP_NAMES(new SimpleConfigurationPropertyBuilder()
+    		 .configKey("securityGroupNames")
+    		 .name("Security group names")
     		 .widget(ConfigurationProperty.Widget.OPENLIST)
     		 .required(true)
-    		 .defaultDescription("Specify the list of security group IDs.")
-    		 .defaultErrorMessage("Security group IDs are mandatory")
+    		 .defaultDescription("Specify the list of security group names.")
+    		 .defaultErrorMessage("Security group names are mandatory")
     		 .build()),
      
      /**
@@ -54,17 +69,14 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
     		 .build()),
      
      /**
-      * The instance type (e.g. m1.medium, m1.large, etc
+      * The instance type (e.g. m1.medium, m1.large, etc, input must be the ID.
       */
      TYPE(new SimpleConfigurationPropertyBuilder()
     		 .configKey(ComputeInstanceTemplateConfigurationPropertyToken.TYPE.unwrap().getConfigKey())
-    		 .name("Instance flavor")
+    		 .name("Instance flavor ID")
     		 .required(true)
-    		 .widget(ConfigurationProperty.Widget.OPENLIST)
     		 .defaultDescription("Size of image to launch")
-    		 .defaultErrorMessage("Instance flavor is mandatory")
-    		 .addValidValues(
-    				 "m1.tiny","m1.small","m1.medium","m1.large","m1.xlarge")
+    		 .defaultErrorMessage("Instance flavor ID is mandatory")
     		 .build()),
      
      /**
@@ -73,10 +85,9 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
      KEY_NAME(new SimpleConfigurationPropertyBuilder()
     		 .configKey("keyName")
     		 .name("Key name")
-    		 .required(false)
+    		 .required(true)
     		 .widget(ConfigurationProperty.Widget.TEXT)
-    		 .defaultDescription("The Nova key pair")
-    		 .hidden(true)
+    		 .defaultDescription("The name of Nova key pair")
     		 .build());
 	/**
 	 * The configuration property.

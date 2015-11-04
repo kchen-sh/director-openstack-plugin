@@ -1,10 +1,27 @@
+/*
+ * Copyright (c) 2015 Intel Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.cloudera.director.openstack.nova;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.jclouds.openstack.nova.v2_0.domain.Address;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 
 import com.cloudera.director.spi.v1.compute.util.AbstractComputeInstance;
@@ -112,7 +129,7 @@ public class NovaInstance
 				.build()) {
 			@Override
 			protected String getPropertyValue(Server instance) {
-				return instance.getAccessIPv4();
+				return NovaInstance.getPrivateIpAddress(instance).getHostAddress();
 			}
 		},
 		
@@ -123,7 +140,7 @@ public class NovaInstance
 				.build()) {
 			@Override
 			protected String getPropertyValue(Server instance) {
-				return instance.getAccessIPv4();
+				return NovaInstance.getPrivateIpAddress(instance).getHostAddress();
 			}
 		},
 		
@@ -134,7 +151,7 @@ public class NovaInstance
 				.build()) {
 			@Override
 			protected String getPropertyValue(Server instance) {
-				return instance.getAccessIPv4();
+				return new String("networkID");
 			}
 		}
 		
@@ -198,13 +215,43 @@ public class NovaInstance
 	 */
 	private static InetAddress getPrivateIpAddress(Server server) {
 	    Preconditions.checkNotNull(server, "instance is null");
-	    InetAddress privateIpAddress;
+	    InetAddress privateIpAddress = null;
 	    try {
-	      privateIpAddress = InetAddress.getByName(server.getAccessIPv4());
+	    	Iterator<Address> iterator = server.getAddresses().values().iterator();
+	    	Address address = null;
+	    	if (iterator.hasNext()) {
+	    		address = iterator.next();
+	    		privateIpAddress = InetAddress.getByName(address.getAddr());
+	    	}
 	    } catch (UnknownHostException e) {
 	      throw new IllegalArgumentException("Invalid private IP address", e);
 	    }
 	    return privateIpAddress;
-	}	
+	}
+
+	private static InetAddress getFloatingIpAddress(Server server) {
+		Preconditions.checkNotNull(server, "instance is null");
+		InetAddress floatingIpAddress = null;
+		try {
+			Iterator<Address> iterator = server.getAddresses().values().iterator();
+			Address privateAddress = null;
+			Address floatingAddress = null;
+			if (iterator.hasNext()) {
+				privateAddress = iterator.next();
+				if (iterator.hasNext()) {
+					floatingAddress = iterator.next();
+				}
+				if (floatingAddress!=null) {
+					floatingIpAddress = InetAddress.getByName(floatingAddress.getAddr());
+				}
+				else {
+					floatingIpAddress = InetAddress.getByName(privateAddress.getAddr());
+				}
+			}
+		} catch (UnknownHostException e) {
+			throw new IllegalArgumentException("Invalid private IP address", e);
+		}
+		return floatingIpAddress;
+	}
 
 }
