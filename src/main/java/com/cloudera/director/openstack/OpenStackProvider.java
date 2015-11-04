@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2015 Intel Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.cloudera.director.openstack;
 
 import java.util.Arrays;
@@ -40,12 +55,12 @@ public class OpenStackProvider extends AbstractCloudProvider {
 	
 	
 	protected OpenStackCredentials getOpenStackCredentials(Configured configuration,
-			LocalizationContext localizationContext){
+			LocalizationContext localizationContext) {
 		
 		CredentialsProvider<OpenStackCredentials> provider = new OpenStackCredentialsProvider();
-		OpenStackCredentials credential = provider.createCredentials(configuration, localizationContext);
-		checkNotNull(credential, "OpenStackCredentials is null!");
-		return credential;
+		OpenStackCredentials credentials = provider.createCredentials(configuration, localizationContext);
+		checkNotNull(credentials, "OpenStackCredentials is null!");
+		return credentials;
 	}
 	
 	/**
@@ -71,9 +86,9 @@ public class OpenStackProvider extends AbstractCloudProvider {
 	protected ConfigurationValidator getResourceProviderConfigurationValidator(
 	      ResourceProviderMetadata resourceProviderMetadata) {
 		ConfigurationValidator providerSpecificValidator;
-		if ( resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId()) ){
-			 providerSpecificValidator = new NovaProviderConfigurationValidator();
-		}else {
+		if ( resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId()) ) {
+			 providerSpecificValidator = new NovaProviderConfigurationValidator(credentials);
+		} else {
 		      throw new IllegalArgumentException("No such provider: " + resourceProviderMetadata.getId());
 	    }
 		
@@ -87,13 +102,14 @@ public class OpenStackProvider extends AbstractCloudProvider {
 			Configured configuration) {
 		ResourceProviderMetadata resourceProviderMetadata =
 				 getProviderMetadata().getResourceProviderMetadata(resourceProviderId);
-		if (resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId())){
+		if (resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId())) {
 			return new NovaProvider(configuration, this.credentials, this.openstackConfig,
 			   getLocalizationContext());
 		}
 		
 		//TODO: add trove provider later
-		return null;
+		
+		throw new IllegalArgumentException("No such provider: " + resourceProviderMetadata.getId());
 	}
 
 }

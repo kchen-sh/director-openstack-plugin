@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Intel, Inc.
+ * Copyright (c) 2015 Intel Corporation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,4 +31,10 @@ public final class Configurations {
 	 */
 	public static final String CONFIGURATION_FILE_NAME = "openstack-plugin.conf";
 	
+	/**
+	 * The HOCON path prefix for instance flavor id
+	 */
+	
+	public static final String INSTANCE_FLAVOR_ID_SECTION = 
+			"openstack.NovaProvider.resourceConfigs.";
 }
