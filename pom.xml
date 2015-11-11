@@ -1,3 +1,19 @@
+<--
+ * Copyright (c) 2015 Intel Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+-->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
@@ -17,6 +33,7 @@
 		<jsr305.version>2.0.2</jsr305.version>
 		<mockito.version>1.10.19</mockito.version>
 		<slf4j.version>1.7.5</slf4j.version>
+		<logback.version>1.1.2</logback.version>
 		<xerces.version>2.11.0</xerces.version>
 		<jaxb.version>2.1</jaxb.version>
 		<spring.version>4.1.5.RELEASE</spring.version>
@@ -69,6 +86,7 @@
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
 			<version>${slf4j.version}</version>
+			<scope>provided</scope>
 		</dependency>
 
 		<!-- jclouds dependencies -->
@@ -124,6 +142,18 @@
 			<version>${mockito.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+			<version>${logback.version}</version>
+			<scope>test</scope>
+		</dependency>
+               <dependency>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                        <version>${logback.version}</version>
+                        <scope>test</scope>
+                </dependency>
 	</dependencies>
 
 	<repositories>
@@ -173,10 +203,6 @@
 						<relocation>
 							<pattern>org.apache</pattern>
 							<shadedPattern>${shade-prefix}.org.apache</shadedPattern>
-						</relocation>
-						<relocation>
-							<pattern>org.slf4j</pattern>
-							<shadedPattern>${shade-prefix}.org.slf4j</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>com.google</pattern>
@@ -231,44 +257,16 @@
 							<shadedPattern>${shade-prefix}.org.jclouds</shadedPattern>
 						</relocation>
 						<relocation>
-							<pattern>com.mysql.jdbc</pattern>
-							<shadedPattern>${shade-prefix}.com.mysql.jdbc</shadedPattern>
-						</relocation>
-						<relocation>
 							<pattern>ch.qos.logback</pattern>
 							<shadedPattern>${shade-prefix}.ch.qos.logback</shadedPattern>
-						</relocation>
-						<relocation>
-							<pattern>org.gjt.mm.mysql.Driver</pattern>
-							<shadedPattern>${shade-prefix}.org.gjt.mm.mysql.Driver</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>org.springframework</pattern>
 							<shadedPattern>${shade-prefix}.org.springframework</shadedPattern>
 						</relocation>
-						<relocation><!-- commons-logging, via spring-core and aws-java-sdk -->
-							<pattern>org.apache.commons.logging</pattern>
-							<shadedPattern>${shade-prefix}.org.apache.commons.logging</shadedPattern>
-						</relocation>
-						<relocation><!-- config -->
+						<relocation>
 							<pattern>com.typesafe.config</pattern>
 							<shadedPattern>${shade-prefix}.com.typesafe.config</shadedPattern>
-						</relocation>
-						<relocation><!-- jackson, via aws-java-sdk -->
-							<pattern>com.fasterxml.jackson</pattern>
-							<shadedPattern>${shade-prefix}.com.fasterxml.jackson</shadedPattern>
-						</relocation>
-						<relocation><!-- commons-codec, via aws-java-sdk -->
-							<pattern>org.apache.commons.codec</pattern>
-							<shadedPattern>${shade-prefix}.org.apache.commons.codec</shadedPattern>
-						</relocation>
-						<relocation><!-- joda-time, via aws-java-sdk -->
-							<pattern>org.joda.time</pattern>
-							<shadedPattern>${shade-prefix}.org.joda.time</shadedPattern>
-						</relocation>
-						<relocation><!-- httpclient, via aws-java-sdk -->
-							<pattern>org.apache.http</pattern>
-							<shadedPattern>${shade-prefix}.org.apache.http</shadedPattern>
 						</relocation>
 					</relocations>
 					<transformers>
