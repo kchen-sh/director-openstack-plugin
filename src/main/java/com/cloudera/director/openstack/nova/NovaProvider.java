@@ -169,7 +169,6 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		
 		// Provisioning the cluster
 		ServerApi  serverApi = novaApi.getServerApi(region); 
-		
 		final Set<String> instancesWithNoPrivateIp = Sets.newHashSet();
 		
 		for (String currentId : instanceIds) {
@@ -209,7 +208,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			}
 		}
 		
-		// Wait until all of them to be active
+		// Wait until all of them to have a private IP
 		int totalTimePollingSeconds = 0;
 		int pollingTimeoutSeconds = 180;
 	    boolean timeoutExceeded = false;
@@ -218,14 +217,13 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 					instancesWithNoPrivateIp.size());
 		    
 			for (String novaInstanceId : instancesWithNoPrivateIp) {
-				Status instance_state = novaApi.getServerApi(region).get(novaInstanceId).getStatus();
-				if (instance_state == Status.ACTIVE) {
+				if (serverApi.get(novaInstanceId).getAddresses() != null) {
 					instancesWithNoPrivateIp.remove(novaInstanceId);
 				}
 			}
 			
 			if (!instancesWithNoPrivateIp.isEmpty()) {
-		        LOG.info("Waiting 5 seconds until next check, {} instance(s) still has not be active",
+		        LOG.info("Waiting 5 seconds until next check, {} instance(s) still don't have an IP",
 		            instancesWithNoPrivateIp.size());
 
 		        if (totalTimePollingSeconds > pollingTimeoutSeconds) {
@@ -236,7 +234,8 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			}
 		}
 		
-		if (instancesWithNoPrivateIp.size() + minCount > instanceIds.size()) {
+		int successfulOperationCount = instanceIds.size() - instancesWithNoPrivateIp.size();
+		if (successfulOperationCount < minCount) {
 			PluginExceptionConditionAccumulator accumulator = new PluginExceptionConditionAccumulator();
 			BiMap<String, String> virtualInstanceIdsByNovaInstanceId = 
 					getNovaInstanceIdsByVirtualInstanceId(instanceIds);
@@ -303,11 +302,10 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		
 		BiMap<String, String> virtualInstanceIdsByNovaInstanceId = 
 				getNovaInstanceIdsByVirtualInstanceId(virtualInstanceIds);
-		
-		//TODO: add the try catch   
+		  
 		for (String currentId : virtualInstanceIds) {
 			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
-			if(novaInstanceId == null) {
+			if (novaInstanceId == null) {
 				InstanceState instanceState_del = NovaInstanceState.fromInstanceStateName(Status.DELETED);
 				instanceStateByInstanceId.put(currentId, instanceState_del);
 				continue;	

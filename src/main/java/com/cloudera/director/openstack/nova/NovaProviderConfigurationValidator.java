@@ -35,7 +35,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 
 /**
- * Validate OpenStack Nova provider configuration
+ * Validate OpenStack Nova provider configuration.
  */
 public class NovaProviderConfigurationValidator implements ConfigurationValidator{
 	
@@ -54,12 +54,12 @@ public class NovaProviderConfigurationValidator implements ConfigurationValidato
 	public void validate(String name, Configured configuration,
 			PluginExceptionConditionAccumulator accumulator, LocalizationContext localizationContext) {
 		checkRegion(configuration, accumulator, localizationContext);
-		
 	}
 	
     /**
-     * validates the configured region
-     * @param configuration the configuration to be validated.
+     * Validates the configured region.
+     * 
+     * @param configuration the configuration to be validated
      * @param accumulator the exception condition accumulator
      * @param localizationContext the localization context
      */
