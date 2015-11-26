@@ -15,38 +15,26 @@
  */
 package com.cloudera.director.openstack;
 
+import com.google.common.base.Preconditions;
+
 public class OpenStackCredentials {
 
-	private final String keystone_endpoint;
+	private final String endpoint;
 	private final String identity;
 	private final String credential;
 
 	public OpenStackCredentials(String endpoint, String tenant, String user, String credential) {
-		String nullArg = "";
-		if (endpoint == null) {
-			nullArg += "The Keystone Endpoint ";
-		}
 		
-		if (tenant == null || user == null) {
-			nullArg += ", Identity(tenant and user) ";
-		}
+		this.endpoint = Preconditions.checkNotNull(endpoint, "endpoint is null");
 		
-		if (credential == null) {
-			nullArg += "and the credential ";
-		}
-		
-		this.keystone_endpoint = endpoint;
+		Preconditions.checkNotNull(tenant, "tenant is null");
+		Preconditions.checkNotNull(user, "user is null");
 		this.identity = tenant + ":" + user;
-		this.credential = credential;
-		
-		if (!nullArg.isEmpty()) {
-			throw new IllegalArgumentException(nullArg + "are(is) empty."  );
-		}
-		
+		this.credential = Preconditions.checkNotNull(credential, "credential is null");
 	}
 	
 	public String getEndpoint() {
-		return keystone_endpoint;
+		return endpoint;
 	}
 	
 	public String getIdentity() {
@@ -58,7 +46,7 @@ public class OpenStackCredentials {
 	}
 	
 	public boolean equals(OpenStackCredentials cre) {
-		return keystone_endpoint.equals(cre.getEndpoint()) && 
+		return endpoint.equals(cre.getEndpoint()) && 
 			   identity.equals(cre.getIdentity()) &&
 			   credential.equals(cre.getCredential());
 	}
