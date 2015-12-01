@@ -23,6 +23,7 @@ import com.cloudera.director.spi.v1.model.ConfigurationProperty;
 import com.cloudera.director.spi.v1.model.Configured;
 import com.cloudera.director.spi.v1.model.LocalizationContext;
 import com.cloudera.director.spi.v1.util.ConfigurationPropertiesUtil;
+import com.google.common.base.Splitter;
 
 /**
  * Represents a template for constructing Nova compute instance.
@@ -30,9 +31,13 @@ import com.cloudera.director.spi.v1.util.ConfigurationPropertiesUtil;
 public class NovaInstanceTemplate extends ComputeInstanceTemplate{
 	
 	/**
+	 * A splitter for comma-separated lists.
+	 */
+	protected static final Splitter CSV_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
+	  
+	/**
 	 * The list of configuration properties (including inherited properties).
 	 */
-
 	@SuppressWarnings("unchecked")
 	private static final List<ConfigurationProperty> CONFIGURATION_PROPERTIES = 
 			ConfigurationPropertiesUtil.merge(

@@ -15,6 +15,7 @@
  */
 package com.cloudera.director.openstack.nova;
 
+import static com.cloudera.director.aws.ec2.EC2InstanceTemplate.EC2InstanceTemplateConfigurationPropertyToken.SECURITY_GROUP_IDS;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.AVAILABILITY_ZONE;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.IMAGE;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.KEY_NAME;
@@ -24,6 +25,8 @@ import static org.jclouds.openstack.nova.v2_0.domain.Image.Status.ACTIVE;
 import static com.cloudera.director.spi.v1.model.InstanceTemplate.InstanceTemplateConfigurationPropertyToken.INSTANCE_NAME_PREFIX;
 import static com.cloudera.director.spi.v1.model.util.Validations.addError;
 
+import java.util.List;
+
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.extensions.KeyPairApi;
 import org.jclouds.openstack.nova.v2_0.extensions.SecurityGroupApi;
@@ -31,6 +34,7 @@ import org.jclouds.openstack.nova.v2_0.features.ImageApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cloudera.director.aws.ec2.EC2InstanceTemplate;
 import com.cloudera.director.spi.v1.model.ConfigurationValidator;
 import com.cloudera.director.spi.v1.model.Configured;
 import com.cloudera.director.spi.v1.model.LocalizationContext;
@@ -38,6 +42,7 @@ import com.cloudera.director.spi.v1.model.exception.PluginExceptionConditionAccu
 import com.cloudera.director.spi.v1.model.exception.TransientProviderException;
 import com.cloudera.director.spi.v1.util.Preconditions;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 
 /**
  * Validates Nova instance template configuration.
@@ -47,10 +52,10 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     		LoggerFactory.getLogger(NovaInstanceTemplateConfigurationValidator.class);
     
     @VisibleForTesting
-    static final String INVALID_AVAILABILITY_ZONE_MSG = "Invalid availability zone" + " : %s";
+    static final String INVALID_AVAILABILITY_ZONE_MSG = "Invalid availability zone: %s";
     
     @VisibleForTesting
-    static final String INVALID_IMAGE_ID = "Invalid image id" + " : %s";
+    static final String INVALID_IMAGE_ID = "Invalid image id: %s";
     
     @VisibleForTesting
     static final String PREFIX_MISSING_MSG = "Instance name prefix must be provided.";
@@ -69,7 +74,8 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     private final NovaProvider provider;
     
     /**
-     *  Create an Nova instance template configuration validator with the specified parameters.
+     * Create an Nova instance template configuration validator with the specified parameters.
+     * 
      * @param provider the Nova provider
      */
     public NovaInstanceTemplateConfigurationValidator(NovaProvider provider) {
@@ -115,12 +121,13 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     			}
     		}
     		catch (Exception e) {
-    			throw new TransientProviderException(e);
+    			throw Throwables.propagate(e);
     		}
     	} 	
     }
     /**
      * Validates the configured Image.
+     * 
      * @param novaApi	the novaApi 
      * @param region	the region
      * @param configuration	the configuration to be validated
@@ -134,24 +141,22 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     		PluginExceptionConditionAccumulator accumulator,
     		LocalizationContext localizationContext) {
     	String imageID = configuration.getConfigurationValue(IMAGE, localizationContext);
-    	if (imageID!=null) {
-			LOG.info(">> Querying IMAGE '{}'", imageID);
-			try {
-				ImageApi imageApi = novaApi.getImageApi(region);
-				if (imageApi.get(imageID).getStatus() != ACTIVE) {
+		
+    	LOG.info(">> Querying IMAGE '{}'", imageID);
+    	try {
+    		  ImageApi imageApi = novaApi.getImageApi(region);
+    		  if (imageApi.get(imageID).getStatus() != ACTIVE) {
 					addError(accumulator, IMAGE, localizationContext, null, INVALID_IMAGE_ID, imageID);
-				}
-			}
-			catch (Exception e) {
-				throw new TransientProviderException(e);
-
-			}
-		}
-    	
+    		  }
+    	}
+    	catch (Exception e) {
+    		throw Throwables.propagate(e);
+    	}
     }
     
     /**
      * Validates the Nova key pair.
+     * 
      * @param novaApi	the novaApi 
      * @param region	the region
      * @param configuration	the configuration to be validated
@@ -175,14 +180,14 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     			}
     		}
     		catch (Exception e) {
-    			throw new TransientProviderException(e);
+    			throw Throwables.propagate(e);
     		}
-    	}
-    	
+    	}	
     }
    
     /**
      * Validates the configured security group names.
+     * 
      * @param novaApi	the novaApi 
      * @param region	the region
      * @param configuration	the configuration to be validated
@@ -194,29 +199,31 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     		String region,
     		Configured configuration,
     		PluginExceptionConditionAccumulator accumulator,
-    		LocalizationContext localizationContext) {
-    	String secgroupName = configuration.getConfigurationValue(SECURITY_GROUP_NAMES, localizationContext);
+    		LocalizationContext localizationContext) {	
+        List<String> securityGroupsNames = NovaInstanceTemplate.CSV_SPLITTER.splitToList(
+                configuration.getConfigurationValue(SECURITY_GROUP_NAMES, localizationContext));
     	
-    	if (secgroupName != null) {
-    		LOG.info(">> Query security names");
-    		try {
-    			SecurityGroupApi secgroupApi = novaApi.getSecurityGroupApi(region).get();
-    			if (!secgroupApi.list().contains(secgroupName)) {
+        for (String securityGroupName : securityGroupsNames) {
+        	LOG.info(">> Query security group Name '{}'", securityGroupName);
+        	
+        	try {
+        		SecurityGroupApi secgroupApi = novaApi.getSecurityGroupApi(region).get();
+    			if (!secgroupApi.list().contains(securityGroupName)) {
     				addError(accumulator, SECURITY_GROUP_NAMES, localizationContext, null, INVALID_SECURITY_GROUP_NAME_MSG, secgroupName);
     			}
-    		}
-    		catch (Exception e) {
-    			throw new TransientProviderException(e);
-    		}
-    	}
-    	
+        	}
+        	catch (Exception e) {
+        		throw Throwables.propagate(e);
+        	}
+        }	
     }
     
     /**
      * Validates the configured prefix.
-     * @param configuration		the configuration to be validated.
-     * @param accumulator		the exception condition accumulator.
-     * @param localizationContext		the localization context.
+     * 
+     * @param configuration		the configuration to be validated
+     * @param accumulator		the exception condition accumulator
+     * @param localizationContext		the localization context
      */
     static void checkPrefix(Configured configuration,
     		PluginExceptionConditionAccumulator accumulator,
@@ -228,11 +235,10 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     	}
     	else {
     		int length = instanceNamePrefix.length();
-    		if (length < 1 || length > 26) {
+    		if (length > 218) {
     			addError(accumulator, INSTANCE_NAME_PREFIX, localizationContext, null , INVALID_PREFIX_LENGTH_MSG);
     		}
     	}
     }
-    
 
 }

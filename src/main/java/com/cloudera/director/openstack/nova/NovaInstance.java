@@ -140,7 +140,7 @@ public class NovaInstance
 				.build()) {
 			@Override
 			protected String getPropertyValue(Server instance) {
-				return NovaInstance.getPrivateIpAddress(instance).getHostAddress();
+				return NovaInstance.getFloatingIpAddress(instance).getHostAddress();
 			}
 		},
 		
@@ -153,10 +153,7 @@ public class NovaInstance
 			protected String getPropertyValue(Server instance) {
 				return new String("networkID");
 			}
-		}
-		
-		
- 		;
+		};
 		
 		/**
 		 * The display property.
@@ -165,6 +162,7 @@ public class NovaInstance
 		
 		/**
 		 * Create an Nova instance display property token with the specified parameters.
+		 * 
 		 * @param displayProperty the display property
 		 */
 		private NovaInstanceDisplayPropertyToken(DisplayProperty displayProperty) {
@@ -191,8 +189,6 @@ public class NovaInstance
 	protected NovaInstance(NovaInstanceTemplate template, String instanceId,
 			Server novaInstance) {
 		super(template, instanceId, getPrivateIpAddress(novaInstance));
-		//get the HypervisorVirtType
-		
 	}
 
 	public Map<String, String> getProperties() {
@@ -229,27 +225,27 @@ public class NovaInstance
 	    return privateIpAddress;
 	}
 
+	/**
+	 * Returns the Public IP address of the specified Nova instance if it exists
+	 *
+	 * @param instance the instance
+	 * @return the public IP address of the specified Nova instance
+	 */
 	private static InetAddress getFloatingIpAddress(Server server) {
 		Preconditions.checkNotNull(server, "instance is null");
 		InetAddress floatingIpAddress = null;
 		try {
 			Iterator<Address> iterator = server.getAddresses().values().iterator();
-			Address privateAddress = null;
 			Address floatingAddress = null;
 			if (iterator.hasNext()) {
-				privateAddress = iterator.next();
+				iterator.next();
 				if (iterator.hasNext()) {
 					floatingAddress = iterator.next();
-				}
-				if (floatingAddress!=null) {
 					floatingIpAddress = InetAddress.getByName(floatingAddress.getAddr());
-				}
-				else {
-					floatingIpAddress = InetAddress.getByName(privateAddress.getAddr());
 				}
 			}
 		} catch (UnknownHostException e) {
-			throw new IllegalArgumentException("Invalid private IP address", e);
+			throw new IllegalArgumentException("Invalid floating IP address", e);
 		}
 		return floatingIpAddress;
 	}

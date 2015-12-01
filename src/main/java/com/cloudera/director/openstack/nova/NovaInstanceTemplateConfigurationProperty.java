@@ -30,7 +30,6 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
     		 .name("Availability zone")
     		 .widget(ConfigurationProperty.Widget.OPENLIST)
     		 .defaultDescription("The availability zone")
-    		 .hidden(true)
     		 .build()),	
      
      /**
@@ -51,7 +50,7 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
      SECURITY_GROUP_NAMES(new SimpleConfigurationPropertyBuilder()
     		 .configKey("securityGroupNames")
     		 .name("Security group names")
-    		 .widget(ConfigurationProperty.Widget.OPENLIST)
+    		 .widget(ConfigurationProperty.Widget.OPENMULTI)
     		 .required(true)
     		 .defaultDescription("Specify the list of security group names.")
     		 .defaultErrorMessage("Security group names are mandatory")
@@ -69,14 +68,22 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
     		 .build()),
      
      /**
-      * The instance type (e.g. m1.medium, m1.large, etc, input must be the ID.
+      * The instance type (e.g. m1.medium, m1.large, etc), input must be the name.
       */
      TYPE(new SimpleConfigurationPropertyBuilder()
     		 .configKey(ComputeInstanceTemplateConfigurationPropertyToken.TYPE.unwrap().getConfigKey())
-    		 .name("Instance flavor ID")
+    		 .name("Instance flavor name")
     		 .required(true)
-    		 .defaultDescription("Size of image to launch")
+    		 .defaultDescription(
+    			"Size of image to launch.<br />" +
+    			"<a target='_blank' href='http://docs.openstack.org/openstack-ops/content/flavors.html'>More Information</a>")
     		 .defaultErrorMessage("Instance flavor ID is mandatory")
+    		 .addValidValues(
+    			"m1.tiny",
+    			"m1.small",
+    			"m1.medium",
+    			"m1.large",
+    			"m1.xlarge")
     		 .build()),
      
      /**
@@ -84,11 +91,23 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
       */
      KEY_NAME(new SimpleConfigurationPropertyBuilder()
     		 .configKey("keyName")
-    		 .name("Key name")
+    		 .name("Key Name")
     		 .required(true)
     		 .widget(ConfigurationProperty.Widget.TEXT)
     		 .defaultDescription("The name of Nova key pair")
+    		 .build()),
+     
+     /**
+      * Name of the key pair to use for new instances.
+      */
+     FLOATINGIP_POOL(new SimpleConfigurationPropertyBuilder()
+    		 .configKey("flaotingipPoolName")
+    		 .name("FloatingIP Pool")
+    		 .defaultValue(null)
+    		 .widget(ConfigurationProperty.Widget.TEXT)
+    		 .defaultDescription("The floating IP pool from which to allocate flaoting IP.")
     		 .build());
+     
 	/**
 	 * The configuration property.
 	 */
