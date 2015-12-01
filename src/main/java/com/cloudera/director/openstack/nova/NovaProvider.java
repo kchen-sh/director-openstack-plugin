@@ -168,7 +168,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 	
     private void createAndAssignFlotingIP(FloatingIPApi floatingipApi,
     		String floatingipPool,String instanceId) {
-    	if (!floatingipPool.isEmpty()) {
+    	if (floatingipPool != null) {
             FloatingIP floatingip = floatingipApi.allocateFromPool(floatingipPool);
             floatingipApi.addToServer(floatingip.getIp(), instanceId);
     	}
@@ -295,18 +295,18 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		for (String currentId : virtualInstanceIds) {
 			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
 			
-			//find the floating ip address if it exists
+			//find the floating IP address if it exists
             String floatingip = null;
             Iterator<Address> iterator = serverApi.get(novaInstanceId).getAddresses().values().iterator();
             if (iterator.hasNext()) {
-            	//discard the first one (the fixed ip)
+            	//discard the first one (the fixed IP)
             	iterator.next(); 
             	if (iterator.hasNext()) {
             		floatingip = iterator.next().getAddr();
             	}
             }
-            //disassociate and delete the floating ip
-            if (!floatingip.isEmpty()) {
+            //disassociate and delete the floating IP
+            if (floatingip != null) {
             	String floatingipID = findFloatingIPByAddress(floatingipApi.get(), floatingip);
             	floatingipApi.get().removeFromServer(floatingip, novaInstanceId);
             	floatingipApi.get().delete(floatingipID);
