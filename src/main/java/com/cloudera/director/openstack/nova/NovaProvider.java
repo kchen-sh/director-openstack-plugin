@@ -189,9 +189,11 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		String flavor = template.getConfigurationValue(TYPE, templateLocalizationContext);
 		String network = template.getConfigurationValue(NETWORK_ID, templateLocalizationContext);
 		String azone = template.getConfigurationValue(AVAILABILITY_ZONE, templateLocalizationContext);
-		String security_group = template.getConfigurationValue(SECURITY_GROUP_NAMES, templateLocalizationContext);
+		String securityGroups = template.getConfigurationValue(SECURITY_GROUP_NAMES, templateLocalizationContext);
         String key_name = template.getConfigurationValue(KEY_NAME, templateLocalizationContext);
 		String floatingipPool = template.getConfigurationValue(FLOATINGIP_POOL, templateLocalizationContext);
+		
+		List<String> securityGroupsNames = NovaInstanceTemplate.CSV_SPLITTER.splitToList(securityGroups);
 		
 		for (String currentId : instanceIds) {
 			String decoratedInstanceName = decorateInstanceName(template, currentId, templateLocalizationContext);
@@ -205,7 +207,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 								.keyPairName(key_name)
 								.networks(network)
 								.availabilityZone(azone)
-								.securityGroupNames(security_group)
+								.securityGroupNames(securityGroupsNames)
 								.metadata(tags);
 			
 			ServerCreated currentServer = serverApi.create(decoratedInstanceName, image, flavor, createServerOps);
