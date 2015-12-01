@@ -17,6 +17,7 @@ package com.cloudera.director.openstack.nova;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,9 +28,12 @@ import org.jclouds.apis.ApiMetadata;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.NovaApiMetadata;
+import org.jclouds.openstack.nova.v2_0.domain.Address;
+import org.jclouds.openstack.nova.v2_0.domain.FloatingIP;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.domain.Server.Status;
 import org.jclouds.openstack.nova.v2_0.domain.ServerCreated;
+import org.jclouds.openstack.nova.v2_0.extensions.FloatingIPApi;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.openstack.nova.v2_0.options.CreateServerOptions;
 import org.jclouds.openstack.v2_0.domain.PaginatedCollection;
@@ -44,6 +48,7 @@ import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigura
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.SECURITY_GROUP_NAMES;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.AVAILABILITY_ZONE;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.KEY_NAME;
+import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.FLOATINGIP_POOL;
 
 import com.cloudera.director.openstack.OpenStackCredentials;
 import com.cloudera.director.spi.v1.compute.util.AbstractComputeProvider;
@@ -59,8 +64,10 @@ import com.cloudera.director.spi.v1.model.util.SimpleResourceTemplate;
 import com.cloudera.director.spi.v1.provider.ResourceProviderMetadata;
 import com.cloudera.director.spi.v1.provider.util.SimpleResourceProviderMetadata;
 import com.cloudera.director.spi.v1.util.ConfigurationPropertiesUtil;
+import com.google.common.base.Optional;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
@@ -158,28 +165,36 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			Configured configuration, Map<String, String> tags) {
 		return new NovaInstanceTemplate(name, configuration, tags, this.getLocalizationContext());
 	}
+	
+    private void createAndAssignFlotingIP(FloatingIPApi floatingipApi,
+    		String floatingipPool,String instanceId) {
+    	if (!floatingipPool.isEmpty()) {
+            FloatingIP floatingip = floatingipApi.allocateFromPool(floatingipPool);
+            floatingipApi.addToServer(floatingip.getIp(), instanceId);
+    	}
+    }
 
 	public void allocate(NovaInstanceTemplate template, Collection<String> instanceIds,
 			int minCount) throws InterruptedException {
-
 	    LocalizationContext providerLocalizationContext = getLocalizationContext();
 	    LocalizationContext templateLocalizationContext =
 	        SimpleResourceTemplate.getTemplateLocalizationContext(providerLocalizationContext);
 		
-		
 		// Provisioning the cluster
-		ServerApi  serverApi = novaApi.getServerApi(region); 
+		ServerApi  serverApi = novaApi.getServerApi(region);
+		Optional<FloatingIPApi> floatingipApi = novaApi.getFloatingIPApi(region);
 		final Set<String> instancesWithNoPrivateIp = Sets.newHashSet();
+		
+		String image = template.getConfigurationValue(IMAGE, templateLocalizationContext);
+		String flavor = template.getConfigurationValue(TYPE, templateLocalizationContext);
+		String network = template.getConfigurationValue(NETWORK_ID, templateLocalizationContext);
+		String azone = template.getConfigurationValue(AVAILABILITY_ZONE, templateLocalizationContext);
+		String security_group = template.getConfigurationValue(SECURITY_GROUP_NAMES, templateLocalizationContext);
+        String key_name = template.getConfigurationValue(KEY_NAME, templateLocalizationContext);
+		String floatingipPool = template.getConfigurationValue(FLOATINGIP_POOL, templateLocalizationContext);
 		
 		for (String currentId : instanceIds) {
 			String decoratedInstanceName = decorateInstanceName(template, currentId, templateLocalizationContext);
-			String image = template.getConfigurationValue(IMAGE, templateLocalizationContext);
-			String flavor = template.getConfigurationValue(TYPE, templateLocalizationContext);
-			String network = template.getConfigurationValue(NETWORK_ID, templateLocalizationContext);
-			String azone = template.getConfigurationValue(AVAILABILITY_ZONE, templateLocalizationContext);
-			String security_group = template.getConfigurationValue(SECURITY_GROUP_NAMES, templateLocalizationContext);
-            String key_name = template.getConfigurationValue(KEY_NAME, templateLocalizationContext);			
-			//TODO: consider the block device mapping
 
 			// Tag all the new instances so that we can easily find them later on
 			Map<String, String> tags = new HashMap<String, String>();
@@ -204,6 +219,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			if (serverApi.get(novaInstanceId).getAddresses() == null) {
 		        instancesWithNoPrivateIp.add(novaInstanceId);
 			} else {
+				createAndAssignFlotingIP(floatingipApi.get(), floatingipPool, novaInstanceId);
 		        LOG.info("<< Instance {} got IP {}", novaInstanceId, serverApi.get(novaInstanceId).getAccessIPv4());
 			}
 		}
@@ -219,6 +235,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			for (String novaInstanceId : instancesWithNoPrivateIp) {
 				if (serverApi.get(novaInstanceId).getAddresses() != null) {
 					instancesWithNoPrivateIp.remove(novaInstanceId);
+					createAndAssignFlotingIP(floatingipApi.get(), floatingipPool, novaInstanceId);
 				}
 			}
 			
@@ -251,8 +268,17 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
 		    throw new UnrecoverableProviderException("Problem allocating instances.", pluginExceptionDetails);
 		}
-		
 	}
+	
+    private String findFloatingIPByAddress(FloatingIPApi floatingipApi ,String floatingip) {
+        FluentIterable<FloatingIP> floatingipList = floatingipApi.list();
+        for ( FloatingIP ip : floatingipList) {
+        	if (ip.getIp().compareTo(floatingip) == 0) {
+        		return ip.getId();
+        	}
+        }
+        return null;
+    }
 
 	public void delete(NovaInstanceTemplate template, Collection<String> virtualInstanceIds)
 			throws InterruptedException {
@@ -264,16 +290,34 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 				getNovaInstanceIdsByVirtualInstanceId(virtualInstanceIds);
 		
 		ServerApi serverApi = novaApi.getServerApi(region);
+		Optional<FloatingIPApi> floatingipApi = novaApi.getFloatingIPApi(region);
 		
 		for (String currentId : virtualInstanceIds) {
 			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
-			boolean deleted = serverApi.delete(novaInstanceId);
 			
+			//find the floating ip address if it exists
+            String floatingip = null;
+            Iterator<Address> iterator = serverApi.get(novaInstanceId).getAddresses().values().iterator();
+            if (iterator.hasNext()) {
+            	//discard the first one (the fixed ip)
+            	iterator.next(); 
+            	if (iterator.hasNext()) {
+            		floatingip = iterator.next().getAddr();
+            	}
+            }
+            //disassociate and delete the floating ip
+            if (!floatingip.isEmpty()) {
+            	String floatingipID = findFloatingIPByAddress(floatingipApi.get(), floatingip);
+            	floatingipApi.get().removeFromServer(floatingip, novaInstanceId);
+            	floatingipApi.get().delete(floatingipID);
+            }
+            
+			//delete the server
+			boolean deleted = serverApi.delete(novaInstanceId);
 			if (!deleted) {
 				LOG.info("Unable to terminate instance {}", novaInstanceId);
 			}
 		}
-		
 	}
 
 	public Collection<NovaInstance> find(NovaInstanceTemplate template,
