@@ -100,12 +100,12 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 	public static final ResourceProviderMetadata METADATA = SimpleResourceProviderMetadata.builder()
 		.id(ID)
 		.name("Nova")
-	    .description("OpenStack Nova compute provider")
-	    .providerClass(NovaProvider.class)
-	    .providerConfigurationProperties(CONFIGURATION_PROPERTIES)
-	    .resourceTemplateConfigurationProperties(NovaInstanceTemplate.getConfigurationProperties())
-	    .resourceDisplayProperties(NovaInstance.getDisplayProperties())
-	    .build();
+		.description("OpenStack Nova compute provider")
+		.providerClass(NovaProvider.class)
+		.providerConfigurationProperties(CONFIGURATION_PROPERTIES)
+		.resourceTemplateConfigurationProperties(NovaInstanceTemplate.getConfigurationProperties())
+		.resourceDisplayProperties(NovaInstance.getDisplayProperties())
+		.build();
 	
 	/*
 	 * The credentials of the OpenStack environment
@@ -155,10 +155,10 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		
 		
 		return ContextBuilder.newBuilder(NOVA_API_METADATA)
-			  .endpoint(endpoint)
-              .credentials(identity, credential)
-              .modules(modules)
-              .buildApi(NovaApi.class);
+				.endpoint(endpoint)
+				.credentials(identity, credential)
+				.modules(modules)
+				.buildApi(NovaApi.class);
 	}
 	
 	public NovaInstanceTemplate createResourceTemplate(String name,
@@ -166,23 +166,24 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		return new NovaInstanceTemplate(name, configuration, tags, this.getLocalizationContext());
 	}
 	
-    private void createAndAssignFlotingIP(FloatingIPApi floatingipApi,
-    		String floatingipPool,String instanceId) {
-    	if (floatingipPool != null) {
-            FloatingIP floatingip = floatingipApi.allocateFromPool(floatingipPool);
-            floatingipApi.addToServer(floatingip.getIp(), instanceId);
-    	}
-    }
+	
+	private void createAndAssignFloatingIP(FloatingIPApi floatingIpApi,
+			String floatingipPool, String instanceId) {
+		if (floatingipPool != null) {
+	            FloatingIP floatingip = floatingIpApi.allocateFromPool(floatingipPool);
+        	    floatingIpApi.addToServer(floatingip.getIp(), instanceId);
+		}
+	}
 
 	public void allocate(NovaInstanceTemplate template, Collection<String> instanceIds,
 			int minCount) throws InterruptedException {
-	    LocalizationContext providerLocalizationContext = getLocalizationContext();
-	    LocalizationContext templateLocalizationContext =
-	        SimpleResourceTemplate.getTemplateLocalizationContext(providerLocalizationContext);
+		LocalizationContext providerLocalizationContext = getLocalizationContext();
+		LocalizationContext templateLocalizationContext =
+				SimpleResourceTemplate.getTemplateLocalizationContext(providerLocalizationContext);
 		
 		// Provisioning the cluster
 		ServerApi  serverApi = novaApi.getServerApi(region);
-		Optional<FloatingIPApi> floatingipApi = novaApi.getFloatingIPApi(region);
+		Optional<FloatingIPApi> floatingIpApi = novaApi.getFloatingIPApi(region);
 		final Set<String> instancesWithNoPrivateIp = Sets.newHashSet();
 		
 		String image = template.getConfigurationValue(IMAGE, templateLocalizationContext);
@@ -190,10 +191,9 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		String network = template.getConfigurationValue(NETWORK_ID, templateLocalizationContext);
 		String azone = template.getConfigurationValue(AVAILABILITY_ZONE, templateLocalizationContext);
 		String securityGroups = template.getConfigurationValue(SECURITY_GROUP_NAMES, templateLocalizationContext);
-        String key_name = template.getConfigurationValue(KEY_NAME, templateLocalizationContext);
+		String keyName = template.getConfigurationValue(KEY_NAME, templateLocalizationContext);
 		String floatingipPool = template.getConfigurationValue(FLOATINGIP_POOL, templateLocalizationContext);
-		
-		List<String> securityGroupsNames = NovaInstanceTemplate.CSV_SPLITTER.splitToList(securityGroups);
+		List<String> securityGroupNames = NovaInstanceTemplate.CSV_SPLITTER.splitToList(securityGroups);
 		
 		for (String currentId : instanceIds) {
 			String decoratedInstanceName = decorateInstanceName(template, currentId, templateLocalizationContext);
@@ -204,10 +204,10 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			tags.put("INSTANCE_NAME", decoratedInstanceName);
 			
 			CreateServerOptions createServerOps = new CreateServerOptions()
-								.keyPairName(key_name)
+								.keyPairName(keyName)
 								.networks(network)
 								.availabilityZone(azone)
-								.securityGroupNames(securityGroupsNames)
+								.securityGroupNames(securityGroupNames)
 								.metadata(tags);
 			
 			ServerCreated currentServer = serverApi.create(decoratedInstanceName, image, flavor, createServerOps);
@@ -219,17 +219,17 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			}
 			
 			if (serverApi.get(novaInstanceId).getAddresses() == null) {
-		        instancesWithNoPrivateIp.add(novaInstanceId);
+				instancesWithNoPrivateIp.add(novaInstanceId);
 			} else {
-				createAndAssignFlotingIP(floatingipApi.get(), floatingipPool, novaInstanceId);
-		        LOG.info("<< Instance {} got IP {}", novaInstanceId, serverApi.get(novaInstanceId).getAccessIPv4());
+				createAndAssignFloatingIP(floatingIpApi.get(), floatingipPool, novaInstanceId);
+				LOG.info("<< Instance {} got IP {}", novaInstanceId, serverApi.get(novaInstanceId).getAccessIPv4());
 			}
 		}
 		
 		// Wait until all of them to have a private IP
 		int totalTimePollingSeconds = 0;
 		int pollingTimeoutSeconds = 180;
-	    boolean timeoutExceeded = false;
+		boolean timeoutExceeded = false;
 		while (!instancesWithNoPrivateIp.isEmpty() && !timeoutExceeded) {
 			LOG.info(">> Waiting for {} instance(s) to be active",
 					instancesWithNoPrivateIp.size());
@@ -237,19 +237,19 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			for (String novaInstanceId : instancesWithNoPrivateIp) {
 				if (serverApi.get(novaInstanceId).getAddresses() != null) {
 					instancesWithNoPrivateIp.remove(novaInstanceId);
-					createAndAssignFlotingIP(floatingipApi.get(), floatingipPool, novaInstanceId);
+					createAndAssignFloatingIP(floatingIpApi.get(), floatingipPool, novaInstanceId);
 				}
 			}
 			
 			if (!instancesWithNoPrivateIp.isEmpty()) {
-		        LOG.info("Waiting 5 seconds until next check, {} instance(s) still don't have an IP",
-		            instancesWithNoPrivateIp.size());
-
-		        if (totalTimePollingSeconds > pollingTimeoutSeconds) {
-		        	timeoutExceeded = true;
+				LOG.info("Waiting 5 seconds until next check, {} instance(s) still don't have an IP",
+						instancesWithNoPrivateIp.size());
+				
+				if (totalTimePollingSeconds > pollingTimeoutSeconds) {
+					timeoutExceeded = true;
 		        }        
-		        TimeUnit.SECONDS.sleep(5);
-		        totalTimePollingSeconds += 5;
+				TimeUnit.SECONDS.sleep(5);
+				totalTimePollingSeconds += 5;
 			}
 		}
 		
@@ -268,19 +268,19 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 				}
 			}
 			PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
-		    throw new UnrecoverableProviderException("Problem allocating instances.", pluginExceptionDetails);
+			throw new UnrecoverableProviderException("Problem allocating instances.", pluginExceptionDetails);
 		}
 	}
 	
-    private String findFloatingIPByAddress(FloatingIPApi floatingipApi ,String floatingip) {
-        FluentIterable<FloatingIP> floatingipList = floatingipApi.list();
-        for ( FloatingIP ip : floatingipList) {
-        	if (ip.getIp().compareTo(floatingip) == 0) {
-        		return ip.getId();
-        	}
-        }
-        return null;
-    }
+	private String findFloatingIPByAddress(FloatingIPApi floatingIpApi, String floatingIp) {
+		FluentIterable<FloatingIP> floatingipList = floatingIpApi.list();
+		for ( FloatingIP ip : floatingipList) {
+			if (ip.getIp().compareTo(floatingIp) == 0) {
+				return ip.getId();
+			}
+		}
+		return null;
+	}
 
 	public void delete(NovaInstanceTemplate template, Collection<String> virtualInstanceIds)
 			throws InterruptedException {
@@ -292,28 +292,29 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 				getNovaInstanceIdsByVirtualInstanceId(virtualInstanceIds);
 		
 		ServerApi serverApi = novaApi.getServerApi(region);
-		Optional<FloatingIPApi> floatingipApi = novaApi.getFloatingIPApi(region);
+		Optional<FloatingIPApi> floatingIpApi = novaApi.getFloatingIPApi(region);
 		
 		for (String currentId : virtualInstanceIds) {
 			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
 			
 			//find the floating IP address if it exists
-            String floatingip = null;
-            Iterator<Address> iterator = serverApi.get(novaInstanceId).getAddresses().values().iterator();
-            if (iterator.hasNext()) {
-            	//discard the first one (the fixed IP)
-            	iterator.next(); 
-            	if (iterator.hasNext()) {
-            		floatingip = iterator.next().getAddr();
-            	}
-            }
-            //disassociate and delete the floating IP
-            if (floatingip != null) {
-            	String floatingipID = findFloatingIPByAddress(floatingipApi.get(), floatingip);
-            	floatingipApi.get().removeFromServer(floatingip, novaInstanceId);
-            	floatingipApi.get().delete(floatingipID);
-            }
-            
+			String floatingIp = null;
+			Iterator<Address> iterator = serverApi.get(novaInstanceId).getAddresses().values().iterator();
+			if (iterator.hasNext()) {
+				//discard the first one (the fixed IP)
+				iterator.next();
+				if (iterator.hasNext()) {
+					floatingIp = iterator.next().getAddr();
+				}
+			}
+			
+			//disassociate and delete the floating IP
+			if (floatingIp != null) {
+				String floatingipID = findFloatingIPByAddress(floatingIpApi.get(), floatingIp);
+				floatingIpApi.get().removeFromServer(floatingIp, novaInstanceId);
+				floatingIpApi.get().delete(floatingipID);
+			}
+			
 			//delete the server
 			boolean deleted = serverApi.delete(novaInstanceId);
 			if (!deleted) {
@@ -324,10 +325,9 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 
 	public Collection<NovaInstance> find(NovaInstanceTemplate template,
 			Collection<String> virtualInstanceIds) throws InterruptedException {
-
-	    final Collection<NovaInstance> novaInstances =
-	            Lists.newArrayListWithExpectedSize(virtualInstanceIds.size());
-	    
+		
+		final Collection<NovaInstance> novaInstances =
+				Lists.newArrayListWithExpectedSize(virtualInstanceIds.size());
 		BiMap<String, String> virtualInstanceIdsByNovaInstanceId = 
 				getNovaInstanceIdsByVirtualInstanceId(virtualInstanceIds);
 		
@@ -337,7 +337,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
 			novaInstances.add(new NovaInstance(template, currentId, serverApi.get(novaInstanceId)));
 		}
-
+		
 		return novaInstances;
 	}
 
@@ -352,8 +352,8 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		for (String currentId : virtualInstanceIds) {
 			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
 			if (novaInstanceId == null) {
-				InstanceState instanceState_del = NovaInstanceState.fromInstanceStateName(Status.DELETED);
-				instanceStateByInstanceId.put(currentId, instanceState_del);
+				InstanceState instanceStateDel = NovaInstanceState.fromInstanceStateName(Status.DELETED);
+				instanceStateByInstanceId.put(currentId, instanceStateDel);
 				continue;	
 			}
 			Status instance_state =  novaApi.getServerApi(region).get(novaInstanceId).getStatus();
@@ -391,7 +391,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			if (servers.isEmpty()) {
 				continue;
 			}
-		    novaInstanceIdsByVirtualInstanceId.put(instanceName, servers.get(0).getId());	
+			novaInstanceIdsByVirtualInstanceId.put(instanceName, servers.get(0).getId());	
 		}
 		
 		return novaInstanceIdsByVirtualInstanceId;
