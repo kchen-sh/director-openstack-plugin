@@ -48,7 +48,7 @@ import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigura
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.SECURITY_GROUP_NAMES;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.AVAILABILITY_ZONE;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.KEY_NAME;
-import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.FLOATINGIP_POOL;
+import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.FLOATING_IP_POOL;
 
 import com.cloudera.director.openstack.OpenStackCredentials;
 import com.cloudera.director.spi.v1.compute.util.AbstractComputeProvider;
@@ -192,7 +192,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		String azone = template.getConfigurationValue(AVAILABILITY_ZONE, templateLocalizationContext);
 		String securityGroups = template.getConfigurationValue(SECURITY_GROUP_NAMES, templateLocalizationContext);
 		String keyName = template.getConfigurationValue(KEY_NAME, templateLocalizationContext);
-		String floatingipPool = template.getConfigurationValue(FLOATINGIP_POOL, templateLocalizationContext);
+		String floatingipPool = template.getConfigurationValue(FLOATING_IP_POOL, templateLocalizationContext);
 		List<String> securityGroupNames = NovaInstanceTemplate.CSV_SPLITTER.splitToList(securityGroups);
 		
 		for (String currentId : instanceIds) {
