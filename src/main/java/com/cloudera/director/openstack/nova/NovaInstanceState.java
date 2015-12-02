@@ -35,8 +35,9 @@ public class NovaInstanceState extends AbstractInstanceState<Status> {
 	
 	/**
 	 * Returns the Director instance state for the specified Nova instance name.
+	 * 
 	 * @param instanceStateName the Nova instance state name
-	 * @return the corresponding Director instance state.
+	 * @return the corresponding Director instance state
 	 */
 	public static NovaInstanceState fromInstanceStateName(Status instanceStateName) {
 		return (INSTANCE_STATE_MAP.get(instanceStateName) == null) ? 
@@ -45,8 +46,8 @@ public class NovaInstanceState extends AbstractInstanceState<Status> {
 	}
     
 	/**
-	 * Add an entry in the specified map associating the specified Nova instance state name with a Director instance state.
-	 * with the corresponding instance status.
+	 * Add an entry in the specified map associating the specified Nova instance state name 
+	 * and a Director instance state with the corresponding instance status.
 	 *  
 	 * @param map                 the map from Nova instance state name to Director instance states
 	 * @param instanceStateName   the Nova instance state name
@@ -56,8 +57,10 @@ public class NovaInstanceState extends AbstractInstanceState<Status> {
 			Status instanceStateName, InstanceStatus instanceStatus) {
 		map.put(instanceStateName, new NovaInstanceState(instanceStatus, instanceStateName));
 	}
+	
 	/**
 	 * Create a Nova instance state with the specified parameters.
+	 * 
 	 * @param instanceStatus the instance status
 	 * @param instanceStateDetails the provider-specific instance details
 	 */
