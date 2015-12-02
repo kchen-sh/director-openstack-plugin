@@ -74,6 +74,7 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
     		 .configKey(ComputeInstanceTemplateConfigurationPropertyToken.TYPE.unwrap().getConfigKey())
     		 .name("Instance flavor name")
     		 .required(true)
+    		 .widget(ConfigurationProperty.Widget.OPENLIST)
     		 .defaultDescription(
     			"Size of image to launch.<br />" +
     			"<a target='_blank' href='http://docs.openstack.org/openstack-ops/content/flavors.html'>More Information</a>")
@@ -91,21 +92,24 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
       */
      KEY_NAME(new SimpleConfigurationPropertyBuilder()
     		 .configKey("keyName")
-    		 .name("Key Name")
+    		 .name("Key name")
     		 .required(true)
     		 .widget(ConfigurationProperty.Widget.TEXT)
     		 .defaultDescription("The name of Nova key pair")
     		 .build()),
      
      /**
-      * Name of the key pair to use for new instances.
+      * Name of the floating IP pool to allocate floating IP for new instances.
       */
-     FLOATINGIP_POOL(new SimpleConfigurationPropertyBuilder()
-    		 .configKey("flaotingipPoolName")
-    		 .name("FloatingIP Pool")
+     FLOATING_IP_POOL(new SimpleConfigurationPropertyBuilder()
+    		 .configKey("floatingIpPoolName")
+    		 .name("FloatingIP pool name")
     		 .defaultValue(null)
     		 .widget(ConfigurationProperty.Widget.TEXT)
-    		 .defaultDescription("The floating IP pool from which to allocate flaoting IP.")
+    		 .defaultDescription(
+    			"The floating IP pool from which to allocate flaoting IP. "+
+    			"And the default value is null, "+
+    			"we'll not assign floating IP to the instance.")
     		 .build());
      
 	/**

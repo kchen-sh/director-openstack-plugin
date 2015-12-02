@@ -47,20 +47,17 @@ public class NovaInstanceTemplate extends ComputeInstanceTemplate{
 					);
 	
 	/**
-	 * Returns the list of configuration properties for creating an Nova instance template,
-	 * including inherited properties.
-	 * 
-	 * @return the list of configuration properties for creating an Nova instance template,
+	 * Get the list of configuration properties for creating a Nova instance template,
 	 * including inherited properties.
 	 */
-    public static List<ConfigurationProperty> getConfigurationProperties() {
-    	return CONFIGURATION_PROPERTIES;
-    }
+	public static List<ConfigurationProperty> getConfigurationProperties() {
+		return CONFIGURATION_PROPERTIES;
+	}
+	
 	public NovaInstanceTemplate(String name, Configured configuration,
 			Map<String, String> tags,
 			LocalizationContext providerLocalizationContext) {
 		super(name, configuration, tags, providerLocalizationContext);
-		
 	}
 
 }

@@ -15,7 +15,6 @@
  */
 package com.cloudera.director.openstack.nova;
 
-import static com.cloudera.director.aws.ec2.EC2InstanceTemplate.EC2InstanceTemplateConfigurationPropertyToken.SECURITY_GROUP_IDS;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.AVAILABILITY_ZONE;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.IMAGE;
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.KEY_NAME;
@@ -34,7 +33,6 @@ import org.jclouds.openstack.nova.v2_0.features.ImageApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.cloudera.director.aws.ec2.EC2InstanceTemplate;
 import com.cloudera.director.spi.v1.model.ConfigurationValidator;
 import com.cloudera.director.spi.v1.model.Configured;
 import com.cloudera.director.spi.v1.model.LocalizationContext;
@@ -68,13 +66,14 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     
     @VisibleForTesting
     static final String INVALID_SECURITY_GROUP_NAME_MSG = "Invalid security group names";
+    
     /**
      * The Nova provider
      */
     private final NovaProvider provider;
     
     /**
-     * Create an Nova instance template configuration validator with the specified parameters.
+     * Create a Nova instance template configuration validator with the specified parameters.
      * 
      * @param provider the Nova provider
      */
@@ -83,8 +82,8 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     }
     
     @Override
-	public void validate(String name, Configured configuration,
-			PluginExceptionConditionAccumulator accumulator, LocalizationContext localizationContext) {
+    public void validate(String name, Configured configuration,
+    		PluginExceptionConditionAccumulator accumulator, LocalizationContext localizationContext) {
 	     
     	NovaApi novaApi = provider.getNovaApi();
     	String region = provider.getRegion();
@@ -94,7 +93,7 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     	checkKeyName(novaApi, region, configuration, accumulator, localizationContext);
     	checkSecurityGroupNames(novaApi, region, configuration, accumulator, localizationContext);
     	checkPrefix(configuration, accumulator, localizationContext);
-	}
+    }
     
     /**
      * Validate the configured availability zone.
@@ -125,6 +124,7 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     		}
     	} 	
     }
+
     /**
      * Validates the configured Image.
      * 
@@ -170,18 +170,15 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
     		PluginExceptionConditionAccumulator accumulator,
     		LocalizationContext localizationContext) {
     	String keyName = configuration.getConfigurationValue(KEY_NAME, localizationContext);
-    	
-    	if (keyName != null) {
-    		LOG.info(">> Query key pair");
-    		try {
+    	LOG.info(">> Query key pair");
+    	try {
     			KeyPairApi keyPairApi = novaApi.getKeyPairApi(region).get();
     			if (!keyPairApi.list().contains(keyName)) {
     				addError(accumulator, KEY_NAME, localizationContext, null, INVALID_KEY_NAME_MSG, keyName);
     			}
-    		}
-    		catch (Exception e) {
-    			throw Throwables.propagate(e);
-    		}
+    	}
+    	catch (Exception e) {
+    		throw Throwables.propagate(e);
     	}	
     }
    
@@ -209,7 +206,7 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
         	try {
         		SecurityGroupApi secgroupApi = novaApi.getSecurityGroupApi(region).get();
     			if (!secgroupApi.list().contains(securityGroupName)) {
-    				addError(accumulator, SECURITY_GROUP_NAMES, localizationContext, null, INVALID_SECURITY_GROUP_NAME_MSG, secgroupName);
+    				addError(accumulator, SECURITY_GROUP_NAMES, localizationContext, null, INVALID_SECURITY_GROUP_NAME_MSG, securityGroupName);
     			}
         	}
         	catch (Exception e) {
@@ -223,7 +220,7 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
      * 
      * @param configuration		the configuration to be validated
      * @param accumulator		the exception condition accumulator
-     * @param localizationContext		the localization context
+     * @param localizationContext	the localization context
      */
     static void checkPrefix(Configured configuration,
     		PluginExceptionConditionAccumulator accumulator,

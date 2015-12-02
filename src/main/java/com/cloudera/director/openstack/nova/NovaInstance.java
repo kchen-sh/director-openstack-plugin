@@ -226,7 +226,7 @@ public class NovaInstance
 	}
 
 	/**
-	 * Returns the Public IP address of the specified Nova instance if it exists
+	 * Returns the Public IP address of the specified Nova instance if it exists.
 	 *
 	 * @param instance the instance
 	 * @return the public IP address of the specified Nova instance
