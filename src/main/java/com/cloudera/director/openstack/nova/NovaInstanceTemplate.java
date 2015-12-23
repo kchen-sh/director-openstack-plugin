@@ -61,3 +61,4 @@ public class NovaInstanceTemplate extends ComputeInstanceTemplate{
 	}
 
 }
+
