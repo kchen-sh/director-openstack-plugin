@@ -34,9 +34,11 @@ import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.domain.Server.Status;
 import org.jclouds.openstack.nova.v2_0.domain.ServerCreated;
 import org.jclouds.openstack.nova.v2_0.extensions.FloatingIPApi;
+import org.jclouds.openstack.nova.v2_0.features.FlavorApi;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.openstack.nova.v2_0.options.CreateServerOptions;
 import org.jclouds.openstack.v2_0.domain.PaginatedCollection;
+import org.jclouds.openstack.v2_0.domain.Resource;
 import org.jclouds.openstack.v2_0.options.PaginationOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -187,13 +189,14 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		final Set<String> instancesWithNoPrivateIp = Sets.newHashSet();
 		
 		String image = template.getConfigurationValue(IMAGE, templateLocalizationContext);
-		String flavor = template.getConfigurationValue(TYPE, templateLocalizationContext);
+		String flavorName = template.getConfigurationValue(TYPE, templateLocalizationContext);
 		String network = template.getConfigurationValue(NETWORK_ID, templateLocalizationContext);
 		String azone = template.getConfigurationValue(AVAILABILITY_ZONE, templateLocalizationContext);
 		String securityGroups = template.getConfigurationValue(SECURITY_GROUP_NAMES, templateLocalizationContext);
 		String keyName = template.getConfigurationValue(KEY_NAME, templateLocalizationContext);
 		String floatingipPool = template.getConfigurationValue(FLOATING_IP_POOL, templateLocalizationContext);
 		List<String> securityGroupNames = NovaInstanceTemplate.CSV_SPLITTER.splitToList(securityGroups);
+		String flavorId = getFlavorIDByName(flavorName);
 		
 		for (String currentId : instanceIds) {
 			String decoratedInstanceName = decorateInstanceName(template, currentId, templateLocalizationContext);
@@ -210,7 +213,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 								.securityGroupNames(securityGroupNames)
 								.metadata(tags);
 			
-			ServerCreated currentServer = serverApi.create(decoratedInstanceName, image, flavor, createServerOps);
+			ServerCreated currentServer = serverApi.create(decoratedInstanceName, image, flavorId, createServerOps);
 			
 			String novaInstanceId = currentServer.getId();			
 			while (novaInstanceId.isEmpty()) {
@@ -274,7 +277,7 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 	
 	private String findFloatingIPByAddress(FloatingIPApi floatingIpApi, String floatingIp) {
 		FluentIterable<FloatingIP> floatingipList = floatingIpApi.list();
-		for ( FloatingIP ip : floatingipList) {
+		for (FloatingIP ip : floatingipList) {
 			if (ip.getIp().compareTo(floatingIp) == 0) {
 				return ip.getId();
 			}
@@ -282,6 +285,17 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		return null;
 	}
 
+	private String getFlavorIDByName(String flavorName) {
+		FlavorApi flavorApi = novaApi.getFlavorApi(region);
+		FluentIterable<Resource> flavorList = flavorApi.list().concat();
+		for (Resource flavor : flavorList) {
+			if (flavor.getName().compareTo(flavorName) == 0 ) {
+				return flavor.getId();
+			}
+		}
+		return null; 
+	}
+	
 	public void delete(NovaInstanceTemplate template, Collection<String> virtualInstanceIds)
 			throws InterruptedException {
 		if (virtualInstanceIds.isEmpty()) {
