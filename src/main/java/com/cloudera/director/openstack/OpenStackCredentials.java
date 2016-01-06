@@ -15,7 +15,15 @@
  */
 package com.cloudera.director.openstack;
 
+import org.jclouds.ContextBuilder;
+import org.jclouds.apis.ApiMetadata;
+import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
+import org.jclouds.openstack.trove.v1.TroveApi;
+import org.jclouds.openstack.trove.v1.TroveApiMetadata;
+
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Module;
 
 public class OpenStackCredentials {
 
@@ -49,5 +57,17 @@ public class OpenStackCredentials {
 		return endpoint.equals(cre.getEndpoint()) && 
 			   identity.equals(cre.getIdentity()) &&
 			   credential.equals(cre.getCredential());
+	}
+
+	private static final ApiMetadata TROVE_API_METADATA = new TroveApiMetadata();
+	
+	public TroveApi buildTroveApi() {
+		Iterable<Module> modules = ImmutableSet.<Module>of(new SLF4JLoggingModule());
+	
+		return ContextBuilder.newBuilder(TROVE_API_METADATA)
+				.endpoint(endpoint)
+				.credentials(identity, credential)
+				.modules(modules)
+				.buildApi(TroveApi.class);		
 	}
 }
