@@ -50,19 +50,18 @@ public class NovaProviderConfigurationValidator implements ConfigurationValidato
 	public NovaProviderConfigurationValidator(OpenStackCredentials credentials) {
 		this.credentials = credentials;
 	}
-    @Override 
+	@Override
 	public void validate(String name, Configured configuration,
 			PluginExceptionConditionAccumulator accumulator, LocalizationContext localizationContext) {
 		checkRegion(configuration, accumulator, localizationContext);
 	}
 	
-    /**
-     * Validates the configured region.
-     * 
-     * @param configuration the configuration to be validated
-     * @param accumulator the exception condition accumulator
-     * @param localizationContext the localization context
-     */
+	/**
+	 * Validates the configured region.
+	 * @param configuration the configuration to be validated
+	 * @param accumulator the exception condition accumulator
+	 * @param localizationContext the localization context
+	 */
 	void checkRegion(Configured configuration,
 			PluginExceptionConditionAccumulator accumulator,
 			LocalizationContext localizationContext) {
@@ -75,9 +74,9 @@ public class NovaProviderConfigurationValidator implements ConfigurationValidato
 		
 		NovaApi novapi = ContextBuilder.newBuilder(new NovaApiMetadata())
 				  .endpoint(endpoint)
-	              .credentials(identity, credential)
-	              .modules(modules)
-	              .buildApi(NovaApi.class);
+				  .credentials(identity, credential)
+				  .modules(modules)
+				  .buildApi(NovaApi.class);
 		if (!novapi.getConfiguredRegions().contains(regionName)) {
 			addError(accumulator, REGION, localizationContext, null, REGION_NOT_FOUND_MSG, regionName);
 		}	
@@ -85,3 +84,4 @@ public class NovaProviderConfigurationValidator implements ConfigurationValidato
 	}
 
 }
+

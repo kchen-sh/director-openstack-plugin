@@ -210,19 +210,19 @@ public class NovaInstance
 	 * @throws IllegalArgumentException if the instance does not have a valid private IP address
 	 */
 	private static InetAddress getPrivateIpAddress(Server server) {
-	    Preconditions.checkNotNull(server, "instance is null");
-	    InetAddress privateIpAddress = null;
-	    try {
-	    	Iterator<Address> iterator = server.getAddresses().values().iterator();
-	    	Address address = null;
-	    	if (iterator.hasNext()) {
-	    		address = iterator.next();
-	    		privateIpAddress = InetAddress.getByName(address.getAddr());
-	    	}
-	    } catch (UnknownHostException e) {
-	      throw new IllegalArgumentException("Invalid private IP address", e);
-	    }
-	    return privateIpAddress;
+		Preconditions.checkNotNull(server, "instance is null");
+		InetAddress privateIpAddress = null;
+		try {
+			Iterator<Address> iterator = server.getAddresses().values().iterator();
+			Address address = null;
+			if (iterator.hasNext()) {
+				address = iterator.next();
+				privateIpAddress = InetAddress.getByName(address.getAddr());
+			}
+		} catch (UnknownHostException e) {
+		  throw new IllegalArgumentException("Invalid private IP address", e);
+		}
+		return privateIpAddress;
 	}
 
 	/**
@@ -251,3 +251,4 @@ public class NovaInstance
 	}
 
 }
+
