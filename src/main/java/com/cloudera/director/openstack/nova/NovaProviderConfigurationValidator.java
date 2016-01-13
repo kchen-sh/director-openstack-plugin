@@ -16,6 +16,7 @@
 package com.cloudera.director.openstack.nova;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Set;
 import org.jclouds.ContextBuilder;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
@@ -53,7 +54,19 @@ public class NovaProviderConfigurationValidator implements ConfigurationValidato
 	@Override
 	public void validate(String name, Configured configuration,
 			PluginExceptionConditionAccumulator accumulator, LocalizationContext localizationContext) {
-		checkRegion(configuration, accumulator, localizationContext);
+		
+		Iterable<Module> modules = ImmutableSet.<Module>of(new SLF4JLoggingModule());
+		String endpoint = credentials.getEndpoint();
+		String identity = credentials.getIdentity();
+		String credential = credentials.getCredential();
+		
+		
+		NovaApi novapi = ContextBuilder.newBuilder(new NovaApiMetadata())
+				  .endpoint(endpoint)
+				  .credentials(identity, credential)
+				  .modules(modules)
+				  .buildApi(NovaApi.class);
+		checkRegion(novapi, configuration, accumulator, localizationContext);
 	}
 	
 	/**
@@ -62,22 +75,14 @@ public class NovaProviderConfigurationValidator implements ConfigurationValidato
 	 * @param accumulator the exception condition accumulator
 	 * @param localizationContext the localization context
 	 */
-	void checkRegion(Configured configuration,
+	void checkRegion(NovaApi novapi,
+			Configured configuration,
 			PluginExceptionConditionAccumulator accumulator,
 			LocalizationContext localizationContext) {
 		String regionName = configuration.getConfigurationValue(REGION, localizationContext);
 		LOG.info(">> Querying Region '{}'", regionName);
-		Iterable<Module> modules = ImmutableSet.<Module>of(new SLF4JLoggingModule());
-		String endpoint = credentials.getEndpoint();
-		String identity = credentials.getIdentity();
-		String credential = credentials.getCredential();
-		
-		NovaApi novapi = ContextBuilder.newBuilder(new NovaApiMetadata())
-				  .endpoint(endpoint)
-				  .credentials(identity, credential)
-				  .modules(modules)
-				  .buildApi(NovaApi.class);
-		if (!novapi.getConfiguredRegions().contains(regionName)) {
+		Set<String> regions = novapi.getConfiguredRegions();
+		if (!regions.contains(regionName)) {
 			addError(accumulator, REGION, localizationContext, null, REGION_NOT_FOUND_MSG, regionName);
 		}	
 		
