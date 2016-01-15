@@ -32,7 +32,7 @@ public class NovaInstanceState extends AbstractInstanceState<Status> {
 		INSTANCE_STATE_MAP = Collections.unmodifiableMap(map);
 		
 	}
-	
+
 	/**
 	 * Returns the Director instance state for the specified Nova instance name.
 	 * 
@@ -44,20 +44,20 @@ public class NovaInstanceState extends AbstractInstanceState<Status> {
 				INSTANCE_STATE_MAP.get(Status.UNKNOWN) : INSTANCE_STATE_MAP.get(instanceStateName);
 		
 	}
-    
+
 	/**
 	 * Add an entry in the specified map associating the specified Nova instance state name 
 	 * and a Director instance state with the corresponding instance status.
 	 *  
-	 * @param map                 the map from Nova instance state name to Director instance states
+	 * @param map				 the map from Nova instance state name to Director instance states
 	 * @param instanceStateName   the Nova instance state name
-	 * @param instanceStatus      the corresponding instance status
+	 * @param instanceStatus	  the corresponding instance status
 	 */
 	private static void addInstanceState(Map<Status, NovaInstanceState> map,
 			Status instanceStateName, InstanceStatus instanceStatus) {
 		map.put(instanceStateName, new NovaInstanceState(instanceStatus, instanceStateName));
 	}
-	
+
 	/**
 	 * Create a Nova instance state with the specified parameters.
 	 * 
@@ -70,3 +70,4 @@ public class NovaInstanceState extends AbstractInstanceState<Status> {
 	}
 
 }
+

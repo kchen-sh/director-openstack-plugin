@@ -26,33 +26,33 @@ import com.cloudera.director.spi.v1.model.util.SimpleConfigurationPropertyBuilde
 public enum OpenStackCredentialsProviderConfigurationProperty implements ConfigurationPropertyToken{
 	
 	KEYSTONE_ENDPOINT(new SimpleConfigurationPropertyBuilder()
-	      .configKey("keystoneEndpoint")
-	      .name("Keystone Endpoint")
-	      .defaultDescription("Endpoint of openstack keystone.")
-	      .defaultErrorMessage("OpenStack credentials configuration is missing the keystone endpoint.")
-	      .required(true)
-	      .build()),
+		  .configKey("keystoneEndpoint")
+		  .name("Keystone Endpoint")
+		  .defaultDescription("Endpoint of openstack keystone.")
+		  .defaultErrorMessage("OpenStack credentials configuration is missing the keystone endpoint.")
+		  .required(true)
+		  .build()),
 	TENANT_NAME(new SimpleConfigurationPropertyBuilder()
-	      .configKey("tenantName")
-	      .name("OpenStack Tenant Name")
-	      .defaultDescription("Tenant Name of openstack.")
-	      .defaultErrorMessage("OpenStack credentials configuration is missing the tenant name.")
-	      .required(true)
-	      .build()),
+		  .configKey("tenantName")
+		  .name("OpenStack Tenant Name")
+		  .defaultDescription("Tenant Name of openstack.")
+		  .defaultErrorMessage("OpenStack credentials configuration is missing the tenant name.")
+		  .required(true)
+		  .build()),
 	USER_NAME(new SimpleConfigurationPropertyBuilder()
-	      .configKey("userName")
-	      .name("OpenStack User Name")
-	      .defaultDescription("Username of openstack.")
-	      .defaultErrorMessage("OpenStack credentials configuration is missing the username.")
-	      .required(true)
-	      .build()),
+		  .configKey("userName")
+		  .name("OpenStack User Name")
+		  .defaultDescription("Username of openstack.")
+		  .defaultErrorMessage("OpenStack credentials configuration is missing the username.")
+		  .required(true)
+		  .build()),
 	PASSWORD(new SimpleConfigurationPropertyBuilder()
-	      .configKey("password")
-	      .name("OpenStack Password")
-	      .defaultDescription("Password of openstack.")
-	      .defaultErrorMessage("OpenStack credentials configuration is missing the password.")
-	      .required(true)
-	      .build());
+		  .configKey("password")
+		  .name("OpenStack Password")
+		  .defaultDescription("Password of openstack.")
+		  .defaultErrorMessage("OpenStack credentials configuration is missing the password.")
+		  .required(true)
+		  .build());
 	
 	/**
 	 * The configuration property.
@@ -75,3 +75,4 @@ public enum OpenStackCredentialsProviderConfigurationProperty implements Configu
 	}
 
 }
+

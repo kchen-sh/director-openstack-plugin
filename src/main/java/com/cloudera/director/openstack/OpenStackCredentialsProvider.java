@@ -55,3 +55,4 @@ public class OpenStackCredentialsProvider implements CredentialsProvider<OpenSta
 	}
 
 }
+

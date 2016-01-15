@@ -47,7 +47,7 @@ public class OpenStackProvider extends AbstractCloudProvider {
 	 * The resource provider metadata.
 	 */
 	private static final List<ResourceProviderMetadata> RESOURCE_PROVIDER_METADATA =
-	      Collections.unmodifiableList(Arrays.asList(NovaProvider.METADATA));
+			Collections.unmodifiableList(Arrays.asList(NovaProvider.METADATA));
 	
 	
 	private OpenStackCredentials credentials;
@@ -84,13 +84,13 @@ public class OpenStackProvider extends AbstractCloudProvider {
 
 	@Override
 	protected ConfigurationValidator getResourceProviderConfigurationValidator(
-	      ResourceProviderMetadata resourceProviderMetadata) {
+		  ResourceProviderMetadata resourceProviderMetadata) {
 		ConfigurationValidator providerSpecificValidator;
 		if ( resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId()) ) {
 			 providerSpecificValidator = new NovaProviderConfigurationValidator(credentials);
 		} else {
-		      throw new IllegalArgumentException("No such provider: " + resourceProviderMetadata.getId());
-	    }
+			  throw new IllegalArgumentException("No such provider: " + resourceProviderMetadata.getId());
+		}
 		
 		return new CompositeConfigurationValidator(METADATA.getProviderConfigurationValidator(),
 				providerSpecificValidator);
@@ -113,3 +113,4 @@ public class OpenStackProvider extends AbstractCloudProvider {
 	}
 
 }
+

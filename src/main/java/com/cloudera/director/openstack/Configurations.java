@@ -31,4 +31,11 @@ public final class Configurations {
 	 */
 	public static final String CONFIGURATION_FILE_NAME = "openstack-plugin.conf";
 	
+	/**
+	 * The HOCON path prefix for instance flavor id
+	 */
+	
+	public static final String INSTANCE_FLAVOR_ID_SECTION =
+			"openstack.NovaProvider.resourceConfigs.";
 }
+

@@ -24,12 +24,12 @@ import com.cloudera.director.spi.v1.model.util.SimpleConfigurationPropertyBuilde
  */
 public enum NovaProviderConfigurationProperty implements ConfigurationPropertyToken{
 	 REGION(new SimpleConfigurationPropertyBuilder()
-     .configKey("region")
-     .name("Region")
-     .required(true)
-     .defaultValue("regionOne")
-     .defaultDescription("Region to target for deployment.")
-     .build());
+	 .configKey("region")
+	 .name("Region")
+	 .required(true)
+	 .defaultValue("regionOne")
+	 .defaultDescription("Region to target for deployment.")
+	 .build());
 
 	/**
 	 * The configuration property.
@@ -42,7 +42,7 @@ public enum NovaProviderConfigurationProperty implements ConfigurationPropertyTo
 	 * @param configurationProperty the configuration property
 	 */
 	private NovaProviderConfigurationProperty(ConfigurationProperty configurationProperty) {
-	    this.configurationProperty = configurationProperty;
+		this.configurationProperty = configurationProperty;
 	}
 	
 	@Override
@@ -52,3 +52,4 @@ public enum NovaProviderConfigurationProperty implements ConfigurationPropertyTo
 
 
 }
+

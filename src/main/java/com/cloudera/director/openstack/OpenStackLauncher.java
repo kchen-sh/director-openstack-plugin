@@ -48,14 +48,14 @@ public class OpenStackLauncher extends AbstractLauncher {
 	public void initialize(File configurationDirectory, HttpProxyParameters httpProxyParameters) {
 		File configFile = new File(configurationDirectory, Configurations.CONFIGURATION_FILE_NAME);
 
-	    if (configFile.canRead()) {	    	
-	    	try{
-	    		config = parseConfigFile(configFile);
-	    		openstackConfig = parseConfigFile(configFile);
-	    	} catch(Exception e) {
-	    		throw new RuntimeException(e);
-	    	}
-	    }
+		if (configFile.canRead()) {
+			try{
+				config = parseConfigFile(configFile);
+				openstackConfig = parseConfigFile(configFile);
+			} catch(Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
 	}
 	
 	/**
@@ -67,7 +67,7 @@ public class OpenStackLauncher extends AbstractLauncher {
 	private static Config parseConfigFile(File configFile) {
 		ConfigParseOptions options = ConfigParseOptions.defaults()
 				.setSyntax(ConfigSyntax.CONF)
-	            .setAllowMissing(false);
+				.setAllowMissing(false);
 
 		return ConfigFactory.parseFileAnySyntax(configFile, options);
 	}
@@ -81,10 +81,11 @@ public class OpenStackLauncher extends AbstractLauncher {
 		
 		LocalizationContext localizationContext = getLocalizationContext(locale);
 
-	    // At this point the configuration object will already contain
-	    // the required data for authentication.	
+		// At this point the configuration object will already contain
+		// the required data for authentication.
 		
 		return  new OpenStackProvider(configuration, openstackConfig, localizationContext);
 	}
 
 }
+
