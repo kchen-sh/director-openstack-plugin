@@ -23,6 +23,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.cloudera.director.openstack.nova.NovaProvider;
 import com.cloudera.director.openstack.nova.NovaProviderConfigurationValidator;
+import com.cloudera.director.openstack.trove.TroveProvider;
+import com.cloudera.director.openstack.trove.TroveProviderConfigurationValidator;
 import com.cloudera.director.spi.v1.model.ConfigurationProperty;
 import com.cloudera.director.spi.v1.model.ConfigurationValidator;
 import com.cloudera.director.spi.v1.model.Configured;
@@ -37,32 +39,30 @@ import com.cloudera.director.spi.v1.provider.util.SimpleCloudProviderMetadataBui
 import com.typesafe.config.Config;
 
 public class OpenStackProvider extends AbstractCloudProvider {
-	
+
 	/**
 	 * The cloud provider ID.
 	 */
 	public static final String ID = "openstack";
-	
+
+	public static boolean featureFlag = Boolean.parseBoolean(System.getenv("TROVE_ENABLE"));
+
 	/**
 	 * The resource provider metadata.
 	 */
-	private static final List<ResourceProviderMetadata> RESOURCE_PROVIDER_METADATA =
-			Collections.unmodifiableList(Arrays.asList(NovaProvider.METADATA));
-	
-	
+	private static final List<ResourceProviderMetadata> RESOURCE_PROVIDER_METADATA = featureFlag ? 
+			Collections.unmodifiableList(Arrays.asList(NovaProvider.METADATA, TroveProvider.METADATA)) : Collections.unmodifiableList(Arrays.asList(NovaProvider.METADATA));
+
 	private OpenStackCredentials credentials;
 	private Config openstackConfig;
-	
-	
-	protected OpenStackCredentials getOpenStackCredentials(Configured configuration,
-			LocalizationContext localizationContext) {
-		
+
+	protected OpenStackCredentials getOpenStackCredentials(Configured configuration, LocalizationContext localizationContext) {
 		CredentialsProvider<OpenStackCredentials> provider = new OpenStackCredentialsProvider();
 		OpenStackCredentials credentials = provider.createCredentials(configuration, localizationContext);
 		checkNotNull(credentials, "OpenStackCredentials is null!");
 		return credentials;
 	}
-	
+
 	/**
 	 * The cloud provider metadata.
 	 */
@@ -70,45 +70,42 @@ public class OpenStackProvider extends AbstractCloudProvider {
 			.id(ID)
 			.name("OpenStack")
 			.description("OpenStack cloud provider implementation")
-			.configurationProperties(Collections.<ConfigurationProperty>emptyList())
+			.configurationProperties(Collections.<ConfigurationProperty> emptyList())
 			.credentialsProviderMetadata(OpenStackCredentialsProvider.METADATA)
 			.resourceProviderMetadata(RESOURCE_PROVIDER_METADATA)
 			.build();
 
-	public OpenStackProvider(Configured configuration, Config openstackConfig,
-			LocalizationContext rootLocalizationContext) {
+	public OpenStackProvider(Configured configuration, Config openstackConfig,LocalizationContext rootLocalizationContext) {
 		super(METADATA, rootLocalizationContext);
 		this.openstackConfig = openstackConfig;
 		this.credentials = getOpenStackCredentials(configuration, rootLocalizationContext);
 	}
 
-	@Override
-	protected ConfigurationValidator getResourceProviderConfigurationValidator(
-		  ResourceProviderMetadata resourceProviderMetadata) {
+	protected ConfigurationValidator getResourceProviderConfigurationValidator(ResourceProviderMetadata resourceProviderMetadata) {
 		ConfigurationValidator providerSpecificValidator;
-		if ( resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId()) ) {
-			 providerSpecificValidator = new NovaProviderConfigurationValidator(credentials);
+		if (resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId())) {
+			providerSpecificValidator = new NovaProviderConfigurationValidator(credentials);
+		} else if (resourceProviderMetadata.getId().equals(TroveProvider.METADATA.getId())) {
+			providerSpecificValidator = new TroveProviderConfigurationValidator(credentials);
 		} else {
-			  throw new IllegalArgumentException("No such provider: " + resourceProviderMetadata.getId());
+			throw new IllegalArgumentException("No such provider: " + resourceProviderMetadata.getId());
 		}
-		
-		return new CompositeConfigurationValidator(METADATA.getProviderConfigurationValidator(),
-				providerSpecificValidator);
+
+		return new CompositeConfigurationValidator(METADATA.getProviderConfigurationValidator(), providerSpecificValidator);
 	}
-	
+
 	@SuppressWarnings("rawtypes")
 	@Override
-	public ResourceProvider createResourceProvider(String resourceProviderId,
-			Configured configuration) {
-		ResourceProviderMetadata resourceProviderMetadata =
-				 getProviderMetadata().getResourceProviderMetadata(resourceProviderId);
+	public ResourceProvider createResourceProvider(String resourceProviderId, Configured configuration) {
+		ResourceProviderMetadata resourceProviderMetadata = getProviderMetadata().getResourceProviderMetadata(resourceProviderId);
 		if (resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId())) {
-			return new NovaProvider(configuration, this.credentials, this.openstackConfig,
-			   getLocalizationContext());
+			return new NovaProvider(configuration, this.credentials, this.openstackConfig, getLocalizationContext());
 		}
-		
-		//TODO: add trove provider later
-		
+
+		if (resourceProviderMetadata.getId().equals(TroveProvider.METADATA.getId())) {
+			return new TroveProvider(configuration, this.credentials, getLocalizationContext());
+		}
+
 		throw new IllegalArgumentException("No such provider: " + resourceProviderMetadata.getId());
 	}
 
