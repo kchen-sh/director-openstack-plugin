@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.cloudera.director.openstack.nova;
 
 import com.cloudera.director.spi.v1.model.ConfigurationProperty;

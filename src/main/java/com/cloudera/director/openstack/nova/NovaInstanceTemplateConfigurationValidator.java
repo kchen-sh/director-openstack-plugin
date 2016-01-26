@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.cloudera.director.openstack.nova;
 
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.AVAILABILITY_ZONE;
@@ -29,6 +30,10 @@ import static com.cloudera.director.spi.v1.model.util.Validations.addError;
 import java.util.List;
 
 import org.jclouds.openstack.nova.v2_0.NovaApi;
+import org.jclouds.openstack.nova.v2_0.domain.Image;
+import org.jclouds.openstack.nova.v2_0.domain.KeyPair;
+import org.jclouds.openstack.nova.v2_0.domain.SecurityGroup;
+import org.jclouds.openstack.nova.v2_0.domain.regionscoped.AvailabilityZone;
 import org.jclouds.openstack.nova.v2_0.extensions.KeyPairApi;
 import org.jclouds.openstack.nova.v2_0.extensions.SecurityGroupApi;
 import org.jclouds.openstack.nova.v2_0.features.ImageApi;
@@ -43,6 +48,8 @@ import com.cloudera.director.spi.v1.model.exception.TransientProviderException;
 import com.cloudera.director.spi.v1.util.Preconditions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.Lists;
 
 /**
  * Validates Nova instance template configuration.
@@ -55,7 +62,7 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
 	static final String INVALID_AVAILABILITY_ZONE_MSG = "Invalid availability zone: %s";
 
 	@VisibleForTesting
-	static final String INVALID_IMAGE_ID = "Invalid image id: %s";
+	static final String INVALID_IMAGE_MSG = "Invalid image id: %s";
 
 	@VisibleForTesting
 	static final String PREFIX_MISSING_MSG = "Instance name prefix must be provided.";
@@ -121,7 +128,15 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
 			LOG.info(">> Describing zone '{}",zoneName);
 			
 			try {
-				if (!novaApi.getAvailabilityZoneApi(region).get().listAvailabilityZones().contains(zoneName)){
+				Boolean contains = false; 
+				FluentIterable<AvailabilityZone> availabilityZones = novaApi.getAvailabilityZoneApi(region).get().listAvailabilityZones();
+				for (AvailabilityZone availabilityZone: availabilityZones) {
+					if (availabilityZone.getName().equals(zoneName)) {
+						contains = true;
+						break;
+					}
+				}
+				if (!contains) {
 					addError(accumulator, AVAILABILITY_ZONE, localizationContext, null, INVALID_AVAILABILITY_ZONE_MSG, zoneName);
 				}
 			}
@@ -151,8 +166,9 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
 		LOG.info(">> Querying IMAGE '{}'", imageID);
 		try {
 			ImageApi imageApi = novaApi.getImageApi(region);
-			if (imageApi.get(imageID).getStatus() != ACTIVE) {
-				addError(accumulator, IMAGE, localizationContext, null, INVALID_IMAGE_ID, imageID);
+			Image image = imageApi.get(imageID);
+			if (image == null || image.getStatus() != ACTIVE) {
+				addError(accumulator, IMAGE, localizationContext, null, INVALID_IMAGE_MSG, imageID);
 			}
 		}
 		catch (Exception e) {
@@ -178,7 +194,7 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
 		LOG.info(">> Query key pair");
 		try {
 			KeyPairApi keyPairApi = novaApi.getKeyPairApi(region).get();
-			if (!keyPairApi.list().contains(keyName)) {
+			if (keyPairApi.get(keyName) == null) {
 				addError(accumulator, KEY_NAME, localizationContext, null, INVALID_KEY_NAME_MSG, keyName);
 			}
 		}
@@ -204,18 +220,27 @@ public class NovaInstanceTemplateConfigurationValidator implements Configuration
 		List<String> securityGroupsNames = NovaInstanceTemplate.CSV_SPLITTER.splitToList(
 				configuration.getConfigurationValue(SECURITY_GROUP_NAMES, localizationContext));
 		
-		for (String securityGroupName : securityGroupsNames) {
-			LOG.info(">> Query security group Name '{}'", securityGroupName);
+		try {
+			SecurityGroupApi secgroupApi = novaApi.getSecurityGroupApi(region).get();
+			FluentIterable<SecurityGroup> secgroups = secgroupApi.list();
 			
-			try {
-				SecurityGroupApi secgroupApi = novaApi.getSecurityGroupApi(region).get();
-				if (!secgroupApi.list().contains(securityGroupName)) {
+			for (String securityGroupName : securityGroupsNames) {
+				LOG.info(">> Query security group Name '{}'", securityGroupName);
+			
+				Boolean contains = false; 
+				for (SecurityGroup secgroup: secgroups) {
+					if (secgroup.getName().equals(securityGroupName)) {
+						contains = true;
+						break;
+					}
+				}
+				if (!contains) {
 					addError(accumulator, SECURITY_GROUP_NAMES, localizationContext, null, INVALID_SECURITY_GROUP_NAME_MSG, securityGroupName);
 				}
 			}
-			catch (Exception e) {
-				throw Throwables.propagate(e);
-			}
+		}
+		catch (Exception e) {
+			throw Throwables.propagate(e);
 		}
 	}
 

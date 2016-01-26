@@ -18,7 +18,6 @@ package com.cloudera.director.openstack.nova;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,26 +31,20 @@ import org.jclouds.openstack.cinder.v1.CinderApiMetadata;
 import org.jclouds.openstack.cinder.v1.domain.Volume;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
 import org.jclouds.openstack.cinder.v1.options.CreateVolumeOptions;
-import org.jclouds.openstack.cinder.v1.predicates.VolumePredicates;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.NovaApiMetadata;
-import org.jclouds.openstack.nova.v2_0.domain.Address;
 import org.jclouds.openstack.nova.v2_0.domain.FloatingIP;
 import org.jclouds.openstack.nova.v2_0.domain.FloatingIPPool;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.domain.Server.Status;
 import org.jclouds.openstack.nova.v2_0.domain.ServerCreated;
-import org.jclouds.openstack.nova.v2_0.domain.VolumeAttachment;
 import org.jclouds.openstack.nova.v2_0.extensions.FloatingIPApi;
 import org.jclouds.openstack.nova.v2_0.extensions.FloatingIPPoolApi;
 import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.openstack.nova.v2_0.features.FlavorApi;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.openstack.nova.v2_0.options.CreateServerOptions;
-import org.jclouds.openstack.nova.v2_0.predicates.ServerPredicates;
-import org.jclouds.openstack.v2_0.domain.PaginatedCollection;
 import org.jclouds.openstack.v2_0.domain.Resource;
-import org.jclouds.openstack.v2_0.options.PaginationOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,13 +74,13 @@ import com.cloudera.director.spi.v1.provider.ResourceProviderMetadata;
 import com.cloudera.director.spi.v1.provider.util.SimpleResourceProviderMetadata;
 import com.cloudera.director.spi.v1.util.ConfigurationPropertiesUtil;
 import com.google.common.base.Optional;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Lists;
+
 import com.google.common.collect.Sets;
 import com.google.inject.Module;
 import com.typesafe.config.Config;
@@ -204,12 +197,121 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		return new NovaInstanceTemplate(name, configuration, tags, this.getLocalizationContext());
 	}
 	
-	private FloatingIP createAndAssignFloatingIP(FloatingIPApi floatingIpApi,
-			String floatingIpPool, String instanceId) {
-		PluginExceptionConditionAccumulator accumulator = new PluginExceptionConditionAccumulator();
+	private void VerifyVolumeAttachementApi() {
+		NovaApi novaApi = getNovaApi();
+		String region = getRegion();
+		Optional<VolumeAttachmentApi> volumeAttApi = novaApi.getVolumeAttachmentApi(region);
+		if (!volumeAttApi.isPresent()) {
+			throw new UnrecoverableProviderException("Volume Attachment API does not exist.");
+		}			
+	}
+	
+	// We do not use ServerPredicates and VolumePredicates for
+	// we feel it is not easy to use.
+	private Boolean pollServerStatus(String novaInstanceId, Status status,
+			long maxWaitInSec, long preiodInSec,
+			PluginExceptionConditionAccumulator accumulator) {
+		NovaApi novaApi = getNovaApi();
+		String region = getRegion();
+		ServerApi serverApi = novaApi.getServerApi(region);
 		try {
+			while (maxWaitInSec > 0) {
+				Server server = serverApi.get(novaInstanceId); 
+				if (server == null) {
+					if (status.equals(Status.DELETED)) {
+						return true;
+					}
+					else {
+						return false;
+					}
+				}
+				if (server.getStatus().equals(status)) {
+					return true;
+				}
+				maxWaitInSec -= preiodInSec;
+				TimeUnit.SECONDS.sleep(preiodInSec);
+			}
+		} catch (Exception e) {
+			accumulator.addError(null, e.getMessage());
+		}
+		return false;
+	}
+
+	private Boolean pollVolumeStatus(String volumeId, Volume.Status status,
+			long maxWaitInSec, long preiodInSec,
+			PluginExceptionConditionAccumulator accumulator) {
+		CinderApi cinderApi = getCinderApi();
+		String region = getRegion();
+		VolumeApi volumeApi = cinderApi.getVolumeApi(region);
+		try {
+			while (maxWaitInSec > 0) {
+				// There is not Volume.Status.DELELTED.
+				Volume volume = volumeApi.get(volumeId);
+				if (volume!=null && volume.getStatus().equals(status)) {
+					return true;
+				}
+				maxWaitInSec -= preiodInSec;
+				TimeUnit.SECONDS.sleep(preiodInSec);
+			}
+		} catch (Exception e) {
+			accumulator.addError(null, e.getMessage());
+		}
+		return false;
+	}
+
+	private Boolean pollVolumeDeleted(String volumeId,
+			long maxWaitInSec, long preiodInSec,
+			PluginExceptionConditionAccumulator accumulator) {
+		CinderApi cinderApi = getCinderApi();
+		String region = getRegion();
+		VolumeApi volumeApi = cinderApi.getVolumeApi(region);
+		try {
+			while (maxWaitInSec > 0) {
+				if (volumeApi.get(volumeId) == null) {
+					return true;
+				}
+				maxWaitInSec -= preiodInSec;
+				TimeUnit.SECONDS.sleep(preiodInSec);
+			}
+		} catch (Exception e) {
+			accumulator.addError(null, e.getMessage());
+		}
+		return false;
+	}
+
+	private void VerifyFloatingIPApis(String floatingIpPool) {
+		NovaApi novaApi = getNovaApi();
+		String region = getRegion();
+		Optional<FloatingIPApi> floatingIpApi = novaApi.getFloatingIPApi(region);
+		if (!floatingIpApi.isPresent()) {
+			throw new UnrecoverableProviderException("FloatingIp API does not exist.");
+		}
+		Optional<FloatingIPPoolApi> floatingIpPoolApi = novaApi.getFloatingIPPoolApi(region);
+		if (!floatingIpPoolApi.isPresent()) {
+			throw new UnrecoverableProviderException("FloatingIpPool API does not exist.");
+		}
+		FluentIterable<? extends FloatingIPPool> fltIpPool = floatingIpPoolApi.get().list();
+		boolean poolExists = false;
+		for (FloatingIPPool pool : fltIpPool) {
+			if (pool.getName().equals(floatingIpPool)) {
+				poolExists = true;
+				break;
+			}
+		}
+		if (!poolExists) {
+			throw new UnrecoverableProviderException("FloatingIpPool does not exist.");
+		}
+	}
+	
+	private FloatingIP createAndAssignFloatingIP(String floatingIpPool, String instanceId,
+			PluginExceptionConditionAccumulator accumulator) {
+		NovaApi novaApi = getNovaApi();
+		String region = getRegion();
+		try {
+			FloatingIPApi floatingIpApi = novaApi.getFloatingIPApi(region).get();
 			FloatingIP floatingIp = floatingIpApi.allocateFromPool(floatingIpPool);
 			String fltip = floatingIp.getIp();
+			String floatingIpId = floatingIp.getId();
 			int retryNum = 10;
 			// We need to check whether floating IP was created.
 			while (fltip.isEmpty() && retryNum > 0) {
@@ -217,9 +319,12 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 				fltip = floatingIp.getIp();
 				retryNum--;
 			}
+			// Wait some time here, or it might fail for the instance network info is not ready.
+			TimeUnit.SECONDS.sleep(10);
 			floatingIpApi.addToServer(fltip, instanceId);
 			// AddToServer does not have return value, so we have to check whether 
 			// floating IP was successfully associated.
+			floatingIp = floatingIpApi.get(floatingIpId); 
 			while (floatingIp.getInstanceId() == null || floatingIp.getInstanceId().isEmpty()) {
 				TimeUnit.SECONDS.sleep(5);
 				floatingIpApi.addToServer(fltip, instanceId);
@@ -237,23 +342,149 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			return null;
 		}
 	}
+	
+	private void releaseResources(int volumeNumber, int volumeSize,
+			String floatingIpPool,
+			Collection<String> instanceIds,
+			Collection<String> fltIpIds,
+			PluginExceptionConditionAccumulator accumulator) {
+		// This method releases all instances and volumes/floatingIPs related to the instanceIds.
+		// And delete all other floating IPs in fltIpIds.
+		NovaApi novaApi = getNovaApi();
+		CinderApi cinderApi = getCinderApi();
+		String region = getRegion();
+		ServerApi serverApi = novaApi.getServerApi(region);
+		Optional<FloatingIPApi> floatingIpApi = novaApi.getFloatingIPApi(region);
 
+		BiMap<String, String> novaInstanceIdsByInstanceIds =
+				getNovaInstanceIdsByInstanceIds(instanceIds);
+
+		// Delete the floating IPs associated to the instances and in fltIpIds.
+		if (floatingIpApi.isPresent() && floatingIpPool != null && !floatingIpPool.isEmpty()) {
+			Set<String> floatingIpIds = getFloatingIPIdsByInstanceIds(instanceIds);
+			if (fltIpIds != null && !fltIpIds.isEmpty()) {
+				floatingIpIds.addAll(fltIpIds);
+			}
+			for (String floatingIpId : floatingIpIds) {
+				floatingIpApi.get().delete(floatingIpId);
+			}
+		}
+		
+		if (instanceIds == null || instanceIds.isEmpty()) {
+			// If instanceIds is empty, no need to do following things.
+			return;
+		}
+		
+		// Delete the instances.
+		for (String currentId : instanceIds) {
+			try{
+				String novaInstanceId = novaInstanceIdsByInstanceIds.get(currentId);
+				if (novaInstanceId != null) {
+					serverApi.delete(novaInstanceId);
+				}
+			} catch (Exception e) {
+				accumulator.addError(null, e.getMessage());
+			}
+		}
+		
+		//Make sure all instances deleted.
+		for (String currentId : instanceIds) {
+			try{
+				String novaInstanceId = novaInstanceIdsByInstanceIds.get(currentId);
+				if (novaInstanceId != null && !pollServerStatus(novaInstanceId, Status.DELETED, 120, 5, accumulator)) {
+					LOG.info("Instance {} can not be deleted.", novaInstanceId);
+				}
+			} catch (Exception e) {
+				accumulator.addError(null, e.getMessage());
+			}
+		}
+
+		// Delete the volumes.
+		if (volumeNumber > 0 && volumeSize > 0) {
+			// Get all volumes by instanceIds.
+			Collection<String> volumeIds = getVolumeIdsByInstanceIds(instanceIds);
+			Set<String> volumeToDeleteIds = Sets.newHashSet();
+			Set<String> deletingVolumeIds = Sets.newHashSet();
+			Set<String> errorDeletingVolumeIds = Sets.newHashSet();
+			VolumeApi  volumeApi = cinderApi.getVolumeApi(region);
+			for (String volId : volumeIds) {
+				// Wait until volumes available or error (ready for delete).
+				Volume currentVolume = volumeApi.get(volId);
+				long pollingTimeoutSeconds = 10;
+				long checkInterval = 5;
+				try {
+					while (pollingTimeoutSeconds > 0) {
+						Volume.Status volumeStatus = volumeApi.get(volId).getStatus();
+						// For available or error, delete them.
+						// For error_deleting, leave them.
+						// For deleting, wait them deleted.
+						if (volumeStatus == Volume.Status.AVAILABLE ||
+								volumeStatus == Volume.Status.ERROR) {
+							volumeToDeleteIds.add(currentVolume.getId());
+							break;
+						}
+						if (volumeStatus == Volume.Status.DELETING) {
+							deletingVolumeIds.add(currentVolume.getId());
+							break;
+						}
+						if (volumeStatus == Volume.Status.ERROR_DELETING) {
+							errorDeletingVolumeIds.add(currentVolume.getId());
+							break;
+						}
+						// If not above cases, poll again.
+						TimeUnit.SECONDS.sleep(checkInterval);
+						pollingTimeoutSeconds -= checkInterval;
+					}
+				}
+				catch (Exception e) {
+					accumulator.addError(null, e.getMessage());
+				}
+			}
+
+			for (String volumeId : volumeToDeleteIds) {
+				// Delete the volume.
+				boolean deleted = volumeApi.delete(volumeId);
+				if (!deleted) {
+					LOG.info("Unable to delete volume {}.", volumeId);
+				}
+			}
+			for (String volumeId : volumeToDeleteIds) {
+				// Wait until the volume deleted.
+				if (!pollVolumeDeleted(volumeId, 600, 5, accumulator)) {
+					LOG.info("Unable to delete volume {}.", volumeId);
+				}
+			}
+			for (String volumeId : errorDeletingVolumeIds) {
+				// Also log all undeletable volumes.
+				LOG.info("Unable to delete volume {}.", volumeId);
+			}
+		}
+	}
+	
 	public void allocate(NovaInstanceTemplate template, Collection<String> instanceIds,
 			int minCount) throws InterruptedException {
+
+		PluginExceptionConditionAccumulator accumulator = new PluginExceptionConditionAccumulator();
+		// If we are not given enough instanceIds. Throw exception.
+		if (instanceIds == null || instanceIds.isEmpty() || instanceIds.size() < minCount) {
+			PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
+			throw new UnrecoverableProviderException("No enough instanceIds.", pluginExceptionDetails);
+		}
+
 		LocalizationContext providerLocalizationContext = getLocalizationContext();
 		LocalizationContext templateLocalizationContext =
 				SimpleResourceTemplate.getTemplateLocalizationContext(providerLocalizationContext);
-		
+
 		// Provisioning the cluster
 		NovaApi novaApi = getNovaApi();
 		CinderApi cinderApi = getCinderApi();
 		String region = getRegion();
 		ServerApi serverApi = novaApi.getServerApi(region);
 
-		final Set<String> instancesWithNoPrivateIp = Sets.newHashSet();
-		final Set<String> instancesWithPrivateIp = Sets.newHashSet();
+		final Set<String> novaInstancesNotReady = Sets.newHashSet();
+		final Set<String> novaInstancesReady = Sets.newHashSet();
 		final Set<String> floatingIps = Sets.newHashSet();
-		
+
 		String image = template.getConfigurationValue(IMAGE, templateLocalizationContext);
 		String flavorName = template.getConfigurationValue(TYPE, templateLocalizationContext);
 		String network = template.getConfigurationValue(NETWORK_ID, templateLocalizationContext);
@@ -269,42 +500,25 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		if (volumeNumber > 0 && volumeSize > 0) {
 			// If volume number and volume size are > 0, we will verify whether
 			// VolumeAttachmentApi presents. If not we will not continue.
-			Optional<VolumeAttachmentApi> volumeAttApi = novaApi.getVolumeAttachmentApi(region);
-			if (!volumeAttApi.isPresent()) {
-				throw new UnrecoverableProviderException("Volume Attachment API does not exist.");
-			}			
+			VerifyVolumeAttachementApi();
 		}
 		if (floatingIpPool != null && !floatingIpPool.isEmpty()) {
 			// If floatingIpPool is not empty, verify whether
 			// floatingIpApi and flotingipPool present. If not we will not continue.
-			Optional<FloatingIPApi> floatingIpApi = novaApi.getFloatingIPApi(region);
-			if (!floatingIpApi.isPresent()) {
-				throw new UnrecoverableProviderException("FloatingIp API does not exist.");
-			}
-			Optional<FloatingIPPoolApi> floatingIpPoolApi = novaApi.getFloatingIPPoolApi(region);
-			if (!floatingIpPoolApi.isPresent()) {
-				throw new UnrecoverableProviderException("FloatingIpPool API does not exist.");
-			}
-			FluentIterable<? extends FloatingIPPool> fltIpPool = floatingIpPoolApi.get().list();
-			boolean poolExists = false;
-			for (FloatingIPPool pool : fltIpPool) {
-				if (pool.getName().equals(floatingIpPool)) {
-					poolExists = true;
-					break;
-				}
-			}
-			if (!poolExists) {
-				throw new UnrecoverableProviderException("FloatingIpPool does not exist.");
-			}
+			VerifyFloatingIPApis(floatingIpPool);
 		}
 
+		// For idempotency, we need to release resources first.
+		releaseResources(volumeNumber, volumeSize, floatingIpPool, instanceIds, floatingIps, accumulator);
+		
 		for (String currentId : instanceIds) {
-			String decoratedInstanceName = decorateInstanceName(template, currentId, templateLocalizationContext);
+			// Create instance for each IntanceId (which is not the nova instance ID, but will be transferred to
+			// Instance name).
+			String decoratedInstanceName = decorateInstanceName(template, currentId);
 
 			// Tag all the new instances so that we can easily find them later on
 			Map<String, String> tags = new HashMap<String, String>();
 			tags.put("DIRECTOR_ID", currentId);
-			tags.put("INSTANCE_NAME", decoratedInstanceName);
 			tags.put("VOLUME_NUMBER", Integer.toString(volumeNumber));
 			tags.put("VOLUME_SIZE", Integer.toString(volumeSize));
 
@@ -316,54 +530,33 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 								.metadata(tags);
 			
 			ServerCreated currentServer = serverApi.create(decoratedInstanceName, image, flavorId, createServerOps);
-			
-			String novaInstanceId = currentServer.getId();
-			while (novaInstanceId.isEmpty()) {
-				TimeUnit.SECONDS.sleep(5);
-				novaInstanceId = currentServer.getId();
-			}
-			
-			if (serverApi.get(novaInstanceId).getAddresses() == null) {
-				instancesWithNoPrivateIp.add(novaInstanceId);
-			} else {
-				if (floatingIpPool != null && !floatingIpPool.isEmpty()) {
-					// We already check floatingIpApi exists above. So the get will not fail.
-					FloatingIPApi floatingIpApi = novaApi.getFloatingIPApi(region).get();
-					FloatingIP fltip = createAndAssignFloatingIP(floatingIpApi, floatingIpPool, novaInstanceId);
-					if (fltip != null) {
-						floatingIps.add(fltip.getId());
-					}
-				}
-				LOG.info("<< Instance {} got IP {}", novaInstanceId, serverApi.get(novaInstanceId).getAccessIPv4());
-				instancesWithPrivateIp.add(novaInstanceId);
-			}
+			novaInstancesNotReady.add(currentServer.getId());
 		}
 		
 		// Wait until all of them to have a private IP
 		int totalTimePollingSeconds = 0;
-		int pollingTimeoutSeconds = 180;
+		int pollingTimeoutSeconds = 10;
 		boolean timeoutExceeded = false;
-		while (!instancesWithNoPrivateIp.isEmpty() && !timeoutExceeded) {
-			LOG.info(">> Waiting for {} instance(s) to be active",
-					instancesWithNoPrivateIp.size());
-			
-			for (String novaInstanceId : instancesWithNoPrivateIp) {
-				if (serverApi.get(novaInstanceId).getAddresses() != null) {
-					instancesWithNoPrivateIp.remove(novaInstanceId);
-					instancesWithPrivateIp.add(novaInstanceId);
-					if (floatingIpPool != null && !floatingIpPool.isEmpty()) {
-						FloatingIPApi floatingIpApi = novaApi.getFloatingIPApi(region).get();
-						FloatingIP fltip = createAndAssignFloatingIP(floatingIpApi, floatingIpPool, novaInstanceId);
-						if (fltip != null) {
-							floatingIps.add(fltip.getId());
-						}
-					}
+		while (!novaInstancesNotReady.isEmpty() && !timeoutExceeded) {
+			LOG.info(">> Waiting for {} instance(s) to get Private IP",
+					novaInstancesNotReady.size());
+			List<String> tempList = Lists.newArrayList();
+			for (String novaInstanceId : novaInstancesNotReady) {
+				Server novaInstance = serverApi.get(novaInstanceId);
+				if (novaInstance.getAddresses() != null) {
+					tempList.add(novaInstanceId);
+					LOG.info("<< Instance {} got IP {}", novaInstanceId, novaInstance.getAccessIPv4());
 				}
 			}
 			
-			if (!instancesWithNoPrivateIp.isEmpty()) {
+			for (String novaInstanceId : tempList) {
+				novaInstancesReady.add(novaInstanceId);
+				novaInstancesNotReady.remove(novaInstanceId);
+			}
+			
+			if (!novaInstancesNotReady.isEmpty()) {
 				LOG.info("Waiting 5 seconds until next check, {} instance(s) still don't have an IP",
-						instancesWithNoPrivateIp.size());
+						novaInstancesNotReady.size());
 				
 				if (totalTimePollingSeconds > pollingTimeoutSeconds) {
 					timeoutExceeded = true;
@@ -372,154 +565,148 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 				totalTimePollingSeconds += 5;
 			}
 		}
-		
-		int successfulOperationCount = instanceIds.size() - instancesWithNoPrivateIp.size();
+
 		if (floatingIpPool != null && !floatingIpPool.isEmpty()) {
-			successfulOperationCount = Math.min(successfulOperationCount, floatingIps.size());
+			LOG.info(">> Waiting for {} instance(s) to get Floating IP",
+					novaInstancesReady.size());
+			List<String> tempList = Lists.newArrayList();
+			for (String novaInstanceId : novaInstancesReady) {
+				FloatingIP fltip = createAndAssignFloatingIP(floatingIpPool, novaInstanceId, accumulator);
+				if (fltip != null) {
+					floatingIps.add(fltip.getId());
+				}
+				else {
+					tempList.add(novaInstanceId);
+				}
+			}
+			for (String novaInstanceId : tempList) {
+				novaInstancesReady.remove(novaInstanceId);
+				novaInstancesNotReady.add(novaInstanceId);
+			}			
 		}
+		
+		int successfulOperationCount = instanceIds.size() - novaInstancesNotReady.size();
 		if (successfulOperationCount < minCount) {
 			// Instance number does not meet the requirement. Delete instances
 			// and floating IPs if existing.
-			PluginExceptionConditionAccumulator accumulator = new PluginExceptionConditionAccumulator();
-			BiMap<String, String> virtualInstanceIdsByNovaInstanceId = 
-					getNovaInstanceIdsByVirtualInstanceId(instanceIds);
-			
-			for (String currentId : instanceIds) {
-				try{
-					String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
-					serverApi.delete(novaInstanceId);
-				} catch (Exception e) {
-					accumulator.addError(null, e.getMessage());
-				}
-			}
-			if (floatingIpPool != null && !floatingIpPool.isEmpty()) {
-				FloatingIPApi floatingIpApi = novaApi.getFloatingIPApi(region).get();
-				for (String fltId : floatingIps) {
-					try{
-						floatingIpApi.delete(fltId);
-					} catch (Exception e) {
-						accumulator.addError(null, e.getMessage());
-					}
-				}
-			}
+			// Release all resources already allocated.
+			releaseResources(volumeNumber, volumeSize, floatingIpPool, instanceIds, floatingIps, accumulator);
 			PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
 			throw new UnrecoverableProviderException("Problem allocating instances.", pluginExceptionDetails);
 		}
-		if (volumeNumber > 0 && volumeSize > 0 && instancesWithPrivateIp.size() > 0) {
+		else {
+			// Just delete the fail ones.
+			Collection<String> failInstances = Lists.newArrayList();
+			for (String instanceId : novaInstancesNotReady) {
+				failInstances.add(serverApi.get(instanceId).getMetadata().get("DIRECTOR_ID"));
+			}
+			releaseResources(volumeNumber, volumeSize, floatingIpPool, failInstances, null, accumulator);
+		}
+		
+		if (volumeNumber > 0 && volumeSize > 0 && novaInstancesReady.size() > 0) {
 			// Need to allocate volumes for instances.
 			// Wait all instances to be in "ACTIVE" status.
-			for (String insId : instancesWithPrivateIp) {
-				ServerPredicates.awaitStatus(serverApi, Status.ACTIVE, 120, 5).apply(insId);
+			List<String> tempList = Lists.newArrayList();
+			for (String novaInstanceId : novaInstancesReady) {
+				if (!pollServerStatus(novaInstanceId, Status.ACTIVE, 120, 5, accumulator)) {
+					tempList.add(novaInstanceId);
+				}
+			}
+			for (String novaInstanceId : tempList) {
+				// Add instance which cannot be ACTIVE to novaInstancesNotReady. 
+				novaInstancesReady.remove(novaInstanceId);
+				novaInstancesNotReady.add(novaInstanceId);
 			}
 			
 			LOG.info("Need to allocate {} volumes for each instances.", volumeNumber);
 			
 			VolumeApi volumeApi = cinderApi.getVolumeApi(region);
 			// We have already confirmed volumeAttApi exists, so get will not fail.
-			VolumeAttachmentApi volumeAttachApi = novaApi.getVolumeAttachmentApi(region).get();
-			final List<String> volumeIds = new ArrayList<String>();
+			VolumeAttachmentApi volumeAttachmentApi = novaApi.getVolumeAttachmentApi(region).get();
 			
 			//Create all volumes before attaching them to save time.
-			int vol_to_create = volumeNumber * instancesWithPrivateIp.size();
-			LOG.info(">> Start to create {} volumes for the instances.", vol_to_create);
-			for (int i = 0; i < vol_to_create; i++) {
+			Map<String, Collection<String>> volumeIdsByNovaInstanceIds = Maps.newHashMap();
+			for (String novaInstanceId: novaInstancesReady) {
+				LOG.info(">> Start to create {} volumes for the instances {}.", volumeNumber, novaInstanceId);
+				Map<String, String> tags = new HashMap<String, String>();
+				final List<String> volumeIds = new ArrayList<String>();
+				String instanceId = serverApi.get(novaInstanceId).getMetadata().get("DIRECTOR_ID");
+				tags.put("DIRECTOR_ID", instanceId);
 				CreateVolumeOptions createVolOps = CreateVolumeOptions.Builder
 						.description(VOLUME_DESCRIPTION)
-						.availabilityZone(azone);
-				Volume currentVolume = volumeApi.create(volumeSize, createVolOps);
-				volumeIds.add(currentVolume.getId());
+						.availabilityZone(azone)
+						.metadata(tags);
+				for (int i = 0; i < volumeNumber; i++) {
+					Volume currentVolume = volumeApi.create(volumeSize, createVolOps);
+					volumeIds.add(currentVolume.getId());
+				}
+				volumeIdsByNovaInstanceIds.put(novaInstanceId, volumeIds);
 			}
 			
 			LOG.info(">> Waiting for {} instance(s) to be attached by volumes.",
-					instancesWithPrivateIp.size());
+					novaInstancesReady.size());
 			final List<String> activeVolIds = new ArrayList<String>();
-			for (String insId: instancesWithPrivateIp) {				
-				for (int i = 0; i < volumeNumber; i++) {
-					// Get the first volume, and shift the list.
-					String volId = volumeIds.get(0);
-					volumeIds.remove(volId);
+			List<String> tempList1 = Lists.newArrayList();
+			for (String novaInstanceId: novaInstancesReady) {
+				Collection<String> involvedVolumeIds = volumeIdsByNovaInstanceIds.get(novaInstanceId);
+				for (String volId : involvedVolumeIds) {
 					// We do not set the device so that the devices could be set automatically.
 					String device = "";
-					Volume currentVolume = volumeApi.get(volId);
 					// Wait until Available. The default awaitAvailable wait time is too long (10min).
 					// If not success, we delete it, and regenerate a new volId.
 					boolean createdSuccess = false;
-					if (VolumePredicates.awaitStatus(volumeApi, Volume.Status.AVAILABLE, 60, 5).apply(currentVolume)) {
+					if (pollVolumeStatus(volId, Volume.Status.AVAILABLE, 30, 5, accumulator)) {
 						activeVolIds.add(volId);
 						createdSuccess = true;
-					}
-					else{
-						boolean volDeleted = volumeApi.delete(volId);
-						if (volDeleted) {
-							CreateVolumeOptions createVolOps = CreateVolumeOptions.Builder
-									.description(VOLUME_DESCRIPTION)
-									.availabilityZone(azone);
-							currentVolume = volumeApi.create(volumeSize, createVolOps);
-							volId = currentVolume.getId();
-							if (VolumePredicates.awaitStatus(volumeApi, Volume.Status.AVAILABLE, 60, 5).apply(currentVolume)) {
-								activeVolIds.add(volId);
-								createdSuccess = true;
-							}
-						}
 					}
 					if (!createdSuccess) {
 						// Delete the volume. Instance will be deleted later.
 						volumeApi.delete(volId);
-						instancesWithPrivateIp.remove(insId);
+						tempList1.add(novaInstanceId);
 						LOG.info("Time out on Volume: " + volId);
 					}
 					else {
-						volumeAttachApi.attachVolumeToServerAsDevice(volId, insId, device);
+						// Attach the volume to the instance. 
+						volumeAttachmentApi.attachVolumeToServerAsDevice(volId, novaInstanceId, device);
 						// Wait until In-use.
-						if (!VolumePredicates.awaitStatus(volumeApi, Volume.Status.IN_USE, 60, 5).apply(currentVolume)) {
+						if (!pollVolumeStatus(volId, Volume.Status.IN_USE, 30, 5, accumulator)) {
 							// Attach fail. Delete the volume. Instance will be deleted later.
 							boolean volDeleted = volumeApi.delete(volId);
 							if (volDeleted) {
 								activeVolIds.remove(volId);
 							}
-							instancesWithPrivateIp.remove(insId);
+							tempList1.add(novaInstanceId);
 							LOG.info("Time out on Volume: " + volId);
 						}
 					}
 				}
 			}
-			//if instances with private IP and volumes do not meet the minCount, delete all of them.
-			if (instancesWithPrivateIp.size() < minCount) {
-				PluginExceptionConditionAccumulator accumulator = new PluginExceptionConditionAccumulator();
-				BiMap<String, String> virtualInstanceIdsByNovaInstanceId =
-						getNovaInstanceIdsByVirtualInstanceId(instanceIds);
+			for (String novaInstanceId : tempList1) {
+				novaInstancesReady.remove(novaInstanceId);
+				novaInstancesNotReady.add(novaInstanceId);
+			}
 
-				for (String currentId : instanceIds) {
-					try{
-						String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
-						serverApi.delete(novaInstanceId);
-					} catch (Exception e) {
-						accumulator.addError(null, e.getMessage());
-					}
-				}
-				for (String volId: activeVolIds) {
-					try{
-						volumeApi.delete(volId);
-					} catch (Exception e) {
-						accumulator.addError(null, e.getMessage());
-					}
-				}
+			if (novaInstancesReady.size() < minCount) {
+				// If instances with private IP and volumes do not meet the minCount, delete all of them.
+				releaseResources(volumeNumber, volumeSize, floatingIpPool, instanceIds, floatingIps, accumulator);
 				PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
 				throw new UnrecoverableProviderException("Problem allocating instances and volumes.", pluginExceptionDetails);
 			}
+			else {
+				// Just delete the fail ones.
+				Collection<String> failInstances = Lists.newArrayList();
+				for (String novaInstanceId : novaInstancesNotReady) {
+					failInstances.add(serverApi.get(novaInstanceId).getMetadata().get("DIRECTOR_ID"));
+				}
+				releaseResources(volumeNumber, volumeSize, floatingIpPool, failInstances, null, accumulator);
+			}
+		}
+		if (accumulator.hasError()) {
+			PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
+			throw new UnrecoverableProviderException("Problem allocating instances and volumes.", pluginExceptionDetails);
 		}
 	}
 	
-	private String findFloatingIPByAddress(FloatingIPApi floatingIpApi, String floatingIp) {
-		FluentIterable<FloatingIP> floatingipList = floatingIpApi.list();
-		for ( FloatingIP ip : floatingipList) {
-			if (ip.getIp().compareTo(floatingIp) == 0) {
-				return ip.getId();
-			}
-		}
-		return null;
-	}
-
 	private String getFlavorIDByName(String flavorName) {
 		NovaApi novaApi = getNovaApi();
 		String region = getRegion();
@@ -533,9 +720,50 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		return null; 
 	}
 
-	public void delete(NovaInstanceTemplate template, Collection<String> virtualInstanceIds)
+	private Set<String> getFloatingIPIdsByInstanceIds(Collection<String> instanceIds) {
+		Set<String> floatingIpIds = Sets.newHashSet();
+		if (instanceIds == null || instanceIds.isEmpty()) {
+			return floatingIpIds;
+		}
+		
+		NovaApi novaApi = getNovaApi();
+		String region = getRegion();
+		FloatingIPApi floatingIpApi = novaApi.getFloatingIPApi(region).get();
+		Set<String> novaInstanceIds = getNovaInstanceIdsByInstanceIds(instanceIds).values();
+		FluentIterable<FloatingIP> floatingIps = floatingIpApi.list();
+		for (FloatingIP floatingIp : floatingIps) {
+			if (novaInstanceIds.contains(floatingIp.getInstanceId())) {
+				floatingIpIds.add(floatingIp.getId());
+			}
+		}
+		return floatingIpIds;
+	}
+	
+	private Set<String> getVolumeIdsByInstanceIds(Collection<String> instanceIds) {
+		final Set<String> volumeIds = Sets.newHashSet();
+		if (instanceIds == null || instanceIds.isEmpty()) {
+			return volumeIds;
+		}
+		
+		CinderApi cinderApi = getCinderApi();
+		String region = getRegion();
+		VolumeApi volumeApi = cinderApi.getVolumeApi(region);
+		FluentIterable<? extends Volume> volumes= volumeApi.listInDetail();
+		for (String instanceId: instanceIds) {
+			for (Volume volume: volumes) {
+				if (volume.getMetadata() != null && volume.getMetadata().get("DIRECTOR_ID") != null
+					&& volume.getMetadata().get("DIRECTOR_ID").equals(instanceId)) {
+					volumeIds.add(volume.getId());
+				}
+			}
+		}
+		return volumeIds;
+	}
+	
+	public void delete(NovaInstanceTemplate template, Collection<String> instanceIds)
 			throws InterruptedException {
-		if (virtualInstanceIds.isEmpty()) {
+		
+		if (instanceIds == null || instanceIds.isEmpty()) {
 			return;
 		}
 		
@@ -543,176 +771,110 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 		LocalizationContext templateLocalizationContext =
 			SimpleResourceTemplate.getTemplateLocalizationContext(providerLocalizationContext);
 		int volumeNumber = Integer.parseInt(template.getConfigurationValue(VOLUME_NUMBER, templateLocalizationContext));
+		int volumeSize = Integer.parseInt(template.getConfigurationValue(VOLUME_SIZE, templateLocalizationContext));
+		String floatingIpPool = template.getConfigurationValue(FLOATING_IP_POOL, templateLocalizationContext);
+		PluginExceptionConditionAccumulator accumulator = new PluginExceptionConditionAccumulator();
 
-		NovaApi novaApi = getNovaApi();
-		CinderApi cinderApi = getCinderApi();
-		String region = getRegion();
-		BiMap<String, String> virtualInstanceIdsByNovaInstanceId = 
-				getNovaInstanceIdsByVirtualInstanceId(virtualInstanceIds);
-
-		Set<String> novaIds = Sets.newHashSet();
-		for (String currentId : virtualInstanceIds) {
-			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
-			novaIds.add(novaInstanceId);
-		}
-
-		// Get all volumes attached to the instances.
-		Set<String> volumeIds = Sets.newHashSet();
-		if (volumeNumber > 0) {
-			Optional<VolumeAttachmentApi> volumeAttApi = novaApi.getVolumeAttachmentApi(region);
-			if (!volumeAttApi.isPresent()) {
-				throw new UnrecoverableProviderException("Volume Attachment APIs do not exist.");
-			}
-			VolumeAttachmentApi volumeAttachApi = volumeAttApi.get();
-			for (String novaId : novaIds) {
-				FluentIterable<VolumeAttachment> vol_attachs = volumeAttachApi.listAttachmentsOnServer(novaId);
-				for (VolumeAttachment vol_attach : vol_attachs) {
-					volumeIds.add(vol_attach.getVolumeId());
-				}
-			}
-		}
-
-		ServerApi serverApi = novaApi.getServerApi(region);
-		Optional<FloatingIPApi> floatingIpApi = novaApi.getFloatingIPApi(region);
-
-		for (String currentId : virtualInstanceIds) {
-			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
-			//find the floating IP address if it exists
-			String floatingIp = null;
-			Iterator<Address> iterator = serverApi.get(novaInstanceId).getAddresses().values().iterator();
-			if (iterator.hasNext()) {
-				//discard the first one (the fixed IP)
-				iterator.next();
-				if (iterator.hasNext()) {
-					floatingIp = iterator.next().getAddr();
-				}
-			}
-
-			// Disassociate and delete the floating IP.
-			if (floatingIp != null && !floatingIp.isEmpty()) {
-				if (floatingIpApi.isPresent()) {
-					String floatingipID = findFloatingIPByAddress(floatingIpApi.get(), floatingIp);
-					floatingIpApi.get().removeFromServer(floatingIp, novaInstanceId);
-					floatingIpApi.get().delete(floatingipID);
-				}
-			}
-			
-			// Delete the server
-			boolean deleted = serverApi.delete(novaInstanceId);
-			if (!deleted) {
-				LOG.info("Unable to terminate instance {}", novaInstanceId);
-			}
-		}
-		
-		// Delete the volumes.
-		if (volumeIds.size() > 0) {
-			Set<Volume> volumes = Sets.newHashSet();
-			VolumeApi  volumeApi = cinderApi.getVolumeApi(region);
-			for (String volId : volumeIds) {
-				// Wait until volumes available.
-				Volume currentVolume = volumeApi.get(volId);
-				if (!VolumePredicates.awaitStatus(volumeApi, Volume.Status.AVAILABLE, 60, 5).apply(currentVolume)) {
-					LOG.info("Volume {} is not ready for delete.", currentVolume.getId());
-				}
-				else {
-					volumes.add(currentVolume);
-					// Delete the volume.
-					boolean deleted = volumeApi.delete(volId);
-					if (!deleted) {
-						LOG.info("Unable to delete volume {}.", currentVolume.getId());
-					}
-				}
-			}
-			for (Volume currentVolume : volumes) {
-				// Wait until the volume deleted.
-				if (!VolumePredicates.awaitDeleted(volumeApi).apply(currentVolume)) {
-					LOG.info("Unable to delete volume {}.", currentVolume.getId());
-				}
-			}
+		releaseResources(volumeNumber, volumeSize, floatingIpPool, instanceIds, null, accumulator);
+		if (accumulator.hasError()) {
+			PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
+			throw new UnrecoverableProviderException("Problem allocating instances and volumes.", pluginExceptionDetails);
 		}
 	}
 
 	public Collection<NovaInstance> find(NovaInstanceTemplate template,
-			Collection<String> virtualInstanceIds) throws InterruptedException {
+			Collection<String> instanceIds) throws InterruptedException {
+		
+		final Collection<NovaInstance> novaInstances =
+				Lists.newArrayListWithExpectedSize(instanceIds.size());
+		if (instanceIds == null || instanceIds.isEmpty()) {
+			return novaInstances;
+		}
 		
 		NovaApi novaApi = getNovaApi();
 		String region = getRegion();
-
-		final Collection<NovaInstance> novaInstances =
-				Lists.newArrayListWithExpectedSize(virtualInstanceIds.size());
-		BiMap<String, String> virtualInstanceIdsByNovaInstanceId = 
-				getNovaInstanceIdsByVirtualInstanceId(virtualInstanceIds);
+		BiMap<String, String> instanceIdsByNovaInstanceId = 
+				getNovaInstanceIdsByInstanceIds(instanceIds);
 		
 		ServerApi serverApi = novaApi.getServerApi(region);
 		
-		for (String currentId : virtualInstanceIds) {
-			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
-			novaInstances.add(new NovaInstance(template, currentId, serverApi.get(novaInstanceId)));
+		for (String currentId : instanceIds) {
+			String novaInstanceId = instanceIdsByNovaInstanceId.get(currentId);
+			if (novaInstanceId != null) {
+				novaInstances.add(new NovaInstance(template, currentId, serverApi.get(novaInstanceId)));
+			}
 		}
 		
 		return novaInstances;
 	}
 
 	public Map<String, InstanceState> getInstanceState(NovaInstanceTemplate template, 
-			Collection<String> virtualInstanceIds) {
-
-		NovaApi novaApi = getNovaApi();
-		String region = getRegion();
+			Collection<String> instanceIds) {
 		
-		Map<String, InstanceState> instanceStateByInstanceId = new HashMap<String, InstanceState >();
-		
-		BiMap<String, String> virtualInstanceIdsByNovaInstanceId = 
-				getNovaInstanceIdsByVirtualInstanceId(virtualInstanceIds);
-		  
-		for (String currentId : virtualInstanceIds) {
-			String novaInstanceId = virtualInstanceIdsByNovaInstanceId.get(currentId);
-			if (novaInstanceId == null) {
-				InstanceState instanceStateDel = NovaInstanceState.fromInstanceStateName(Status.DELETED);
-				instanceStateByInstanceId.put(currentId, instanceStateDel);
-				continue;	
-			}
-			Status instance_state =  novaApi.getServerApi(region).get(novaInstanceId).getStatus();
-			InstanceState instanceState = NovaInstanceState.fromInstanceStateName(instance_state);
-			instanceStateByInstanceId.put(currentId, instanceState);
+		Map<String, InstanceState> instanceStatesByInstanceIds = new HashMap<String, InstanceState >();
+		if (instanceIds == null || instanceIds.isEmpty()) {
+			return instanceStatesByInstanceIds;
 		}
 		
-		return instanceStateByInstanceId;
+		NovaApi novaApi = getNovaApi();
+		String region = getRegion();
+		ServerApi serverApi = novaApi.getServerApi(region);
+		BiMap<String, String> instanceIdsByNovaInstanceIds =
+				getNovaInstanceIdsByInstanceIds(instanceIds);
+
+		for (String currentId : instanceIds) {
+			String novaInstanceId = instanceIdsByNovaInstanceIds.get(currentId);
+			if (novaInstanceId == null) {
+				InstanceState instanceStateDel = NovaInstanceState.fromInstanceStateName(Status.DELETED);
+				instanceStatesByInstanceIds.put(currentId, instanceStateDel);
+			}
+			else {
+				Status instance_state =  serverApi.get(novaInstanceId).getStatus();
+				InstanceState instanceState = NovaInstanceState.fromInstanceStateName(instance_state);
+				instanceStatesByInstanceIds.put(currentId, instanceState);
+			}
+		}
+		
+		return instanceStatesByInstanceIds;
 	}	
 
 	public Type getResourceType() {
 		return NovaInstance.TYPE;
 	}
 	
-	private static String decorateInstanceName(NovaInstanceTemplate template, String currentId,
-			  LocalizationContext templateLocalizationContext){
+	private static String decorateInstanceName(NovaInstanceTemplate template, String currentId){
 		return template.getInstanceNamePrefix() + "-" + currentId;
 	}
 	
 	/**
-	 * Returns a map from virtual instance ID to corresponding instance ID for the specified
-	 * virtual instance IDs.
+	 * Returns a map from instance ID to corresponding Nova instance ID for the specified
+	 * instance IDs.
 	 *
-	 * @param virtualInstanceIds the virtual instance IDs
-	 * @return the map from virtual instance ID to corresponding Nova instance ID
+	 * @param instanceIds the given instance IDs
+	 * @return the map from instance ID to corresponding Nova instance ID
 	 */
-	private BiMap<String, String> getNovaInstanceIdsByVirtualInstanceId(
-		  Collection<String> virtualInstanceIds) {
-
+	private BiMap<String, String> getNovaInstanceIdsByInstanceIds(
+		  Collection<String> instanceIds) {
+		// Traverse the server metadata to get the instances.
+		
+		final BiMap<String, String> novaInstanceIdsByInstanceId = HashBiMap.create();
+		if (instanceIds == null || instanceIds.isEmpty()) {
+			return novaInstanceIdsByInstanceId;
+		}
 		NovaApi novaApi = getNovaApi();
 		String region = getRegion();
-		final BiMap<String, String> novaInstanceIdsByVirtualInstanceId = HashBiMap.create();
-		for (String instanceName : virtualInstanceIds) {
-			ListMultimap<String, String> multimap = ArrayListMultimap.create();
-			multimap.put("name", instanceName) ;
-			ServerApi serverApi = novaApi.getServerApi(region);
-			PaginatedCollection<Server> servers = serverApi.listInDetail(PaginationOptions.Builder.queryParameters(multimap));
-			if (servers.isEmpty()) {
-				continue;
+		ServerApi serverApi = novaApi.getServerApi(region);
+		// Transfer to List, for FluentIterable can only be parsed once.
+		List<Server> servers = serverApi.listInDetail().concat().toList();
+		for (String instanceId : instanceIds) {
+			for (Server server: servers) {
+				if (server.getMetadata() != null && server.getMetadata().get("DIRECTOR_ID") != null
+					&& server.getMetadata().get("DIRECTOR_ID").equals(instanceId)) {
+					novaInstanceIdsByInstanceId.put(instanceId, server.getId());
+				}
 			}
-			novaInstanceIdsByVirtualInstanceId.put(instanceName, servers.get(0).getId());	
 		}
 		
-		return novaInstanceIdsByVirtualInstanceId;
+		return novaInstanceIdsByInstanceId;
 	}
 }
-
