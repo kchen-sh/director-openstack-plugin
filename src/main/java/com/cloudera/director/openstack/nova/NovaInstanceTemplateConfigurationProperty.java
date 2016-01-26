@@ -116,7 +116,7 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
 	 * The number of volumes to be attached to each new instance.
 	 */
 	VOLUME_NUMBER(new SimpleConfigurationPropertyBuilder()
-			 .configKey("volumeNumber")
+			.configKey("volumeNumber")
 			.name("Volume number")
 			.required(false)
 			.widget(ConfigurationProperty.Widget.NUMBER)
