@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.cloudera.director.openstack;
 
 import static com.cloudera.director.openstack.OpenStackCredentialsProviderConfigurationProperty.KEYSTONE_ENDPOINT;
+
 import static com.cloudera.director.openstack.OpenStackCredentialsProviderConfigurationProperty.PASSWORD;
 import static com.cloudera.director.openstack.OpenStackCredentialsProviderConfigurationProperty.TENANT_NAME;
 import static com.cloudera.director.openstack.OpenStackCredentialsProviderConfigurationProperty.USER_NAME;
@@ -44,6 +46,7 @@ import com.cloudera.director.spi.v1.model.util.SimpleConfiguration;
 import com.cloudera.director.spi.v1.provider.CloudProvider;
 import com.cloudera.director.spi.v1.provider.CloudProviderMetadata;
 import com.cloudera.director.spi.v1.provider.Launcher;
+
 /**
  * Performs 'live' test of ({@link OpenStackLauncher}
  * 

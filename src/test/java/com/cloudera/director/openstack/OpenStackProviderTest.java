@@ -13,12 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.cloudera.director.openstack;
 
 import static com.cloudera.director.openstack.OpenStackCredentialsProviderConfigurationProperty.KEYSTONE_ENDPOINT;
 import static com.cloudera.director.openstack.OpenStackCredentialsProviderConfigurationProperty.PASSWORD;
 import static com.cloudera.director.openstack.OpenStackCredentialsProviderConfigurationProperty.TENANT_NAME;
 import static com.cloudera.director.openstack.OpenStackCredentialsProviderConfigurationProperty.USER_NAME;
+import static com.cloudera.director.openstack.nova.NovaProviderConfigurationProperty.REGION;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
@@ -42,7 +44,6 @@ import com.cloudera.director.spi.v1.provider.CredentialsProviderMetadata;
 import com.cloudera.director.spi.v1.provider.ResourceProvider;
 import com.cloudera.director.spi.v1.provider.ResourceProviderMetadata;
 import com.typesafe.config.Config;
-
 
 /**
  * Performs 'live' test of {@link OpenStackProvider}
@@ -88,12 +89,13 @@ public class OpenStackProviderTest {
 		environmentConfig.put(TENANT_NAME.unwrap().getConfigKey(), testFixture.getTenantName());
 		environmentConfig.put(USER_NAME.unwrap().getConfigKey(), testFixture.getUserName());
 		environmentConfig.put(PASSWORD.unwrap().getConfigKey(), testFixture.getPassword());
-				
+		environmentConfig.put(REGION.unwrap().getConfigKey(), testFixture.getRegion());
+
 		LocalizationContext localizationContext = DefaultLocalizationContext.FACTORY.createRootLocalizationContext(Locale.getDefault());
-			
+
 		OpenStackCredentials openstackCredentials = openstackCredentialsProvider.createCredentials(
 				new SimpleConfiguration(environmentConfig), localizationContext);
-		assertNotNull(openstackCredentials);	
+		assertNotNull(openstackCredentials);
 		OpenStackProvider openstackProvider = new OpenStackProvider(new SimpleConfiguration(environmentConfig), openstackConfig, localizationContext);
 		assertNotNull(openstackProvider);
 		assertSame(openstackProviderMetadata, openstackProvider.getProviderMetadata());

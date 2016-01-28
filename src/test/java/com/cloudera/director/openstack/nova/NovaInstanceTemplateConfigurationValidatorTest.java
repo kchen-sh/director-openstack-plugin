@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.cloudera.director.openstack.nova;
 
 import static com.cloudera.director.openstack.nova.NovaInstanceTemplateConfigurationProperty.AVAILABILITY_ZONE;
@@ -65,7 +66,6 @@ import com.cloudera.director.spi.v1.model.exception.PluginExceptionConditionAccu
 import com.cloudera.director.spi.v1.model.util.DefaultLocalizationContext;
 import com.google.common.base.Optional;
 import org.junit.Test;
-
 
 /**
  * Tests {@link NovaInstanceTemplateConfigurationValidator}.

@@ -16,9 +16,13 @@
 
 package com.cloudera.director.openstack;
 
+import org.junit.Ignore;
+
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.UUID;
 
+@Ignore
 public final class TestFixture {
 	
 	private String keystoneEndpoint;
@@ -27,25 +31,28 @@ public final class TestFixture {
 	private String password;
 	private String sshPublicKey;
 	private String sshUserName;
+	private String region;
 	
 	private TestFixture(
 			String keystoneEndpoint, String tenantName, String userName, String password, 
-			String sshPublicKey, String sshUserName) {
+			String sshPublicKey, String sshUserName, String region) {
 		this.keystoneEndpoint = keystoneEndpoint;
 		this.tenantName = tenantName;
 		this.userName =  userName;
 		this.password = password;
 		this.sshPublicKey = sshPublicKey;
 		this.sshUserName = sshUserName;
+		this.region = region;
 	}
 	
 	public static TestFixture newTestFixture(boolean sshPublicKeyAndsshUserNameAreRequired) throws IOException {
-		String keystoneEndpoint = TestUtils.readRequiredSystemProperty("KEYSTONE_ENDPOINT");
-		String tenantName = TestUtils.readRequiredSystemProperty("TENANT_NAME");
-		String userName = TestUtils.readRequiredSystemProperty("USER_NAME");
-		String password = TestUtils.readRequiredSystemProperty("PASSWORD");
+		String keystoneEndpoint = UUID.randomUUID().toString();
+		String tenantName = UUID.randomUUID().toString();
+		String userName = UUID.randomUUID().toString();
+		String password = UUID.randomUUID().toString();
 		String sshPublicKey = null;
 		String sshUserName = null;
+		String region = UUID.randomUUID().toString();
 		
 		if (sshPublicKeyAndsshUserNameAreRequired) {
 			sshPublicKey = TestUtils.readFile(TestUtils.readRequiredSystemProperty("SSH_PUBLIC_KEY_PATH"),
@@ -54,7 +61,7 @@ public final class TestFixture {
 		}
 		
 		return new TestFixture(keystoneEndpoint, tenantName, userName,  password, 
-				sshPublicKey, sshUserName);
+				sshPublicKey, sshUserName, region);
 		
 	}
 
@@ -81,5 +88,10 @@ public final class TestFixture {
 	public String getSshUserName() {
 		return sshUserName;
 	}
+
+	public String getRegion() {
+		return region;
+	}
+
 }
 
