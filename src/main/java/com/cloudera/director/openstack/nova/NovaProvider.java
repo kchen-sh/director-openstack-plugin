@@ -529,8 +529,25 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 								.securityGroupNames(securityGroupNames)
 								.metadata(tags);
 			
-			ServerCreated currentServer = serverApi.create(decoratedInstanceName, image, flavorId, createServerOps);
-			novaInstancesNotReady.add(currentServer.getId());
+			try {
+				ServerCreated currentServer = serverApi.create(decoratedInstanceName, image, flavorId, createServerOps);
+				novaInstancesNotReady.add(currentServer.getId());
+			} catch (Exception e) {
+				// Server creation failed. But it may not fail allocate
+				// method, if success instances number is enough.
+			}			
+		}
+		
+		if (novaInstancesNotReady.size() < minCount) {
+			// Instance number does not meet the requirement. Delete instances
+			// and floating IPs if existing.
+			// Release all resources already allocated.
+			String errorMsg = String.format(
+					"Problem allocating %d instances: Can only allocate %d instances while we want at least %d.",
+					instanceIds.size(), novaInstancesNotReady.size(), minCount);
+			releaseResources(volumeNumber, volumeSize, floatingIpPool, instanceIds, floatingIps, accumulator);
+			PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
+			throw new UnrecoverableProviderException(errorMsg, pluginExceptionDetails);
 		}
 		
 		// Wait until all of them to have a private IP
@@ -543,9 +560,9 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			List<String> tempList = Lists.newArrayList();
 			for (String novaInstanceId : novaInstancesNotReady) {
 				Server novaInstance = serverApi.get(novaInstanceId);
-				if (novaInstance.getAddresses() != null) {
+				if (novaInstance.getAddresses() != null && !novaInstance.getAddresses().isEmpty()) {
 					tempList.add(novaInstanceId);
-					LOG.info("<< Instance {} got IP {}", novaInstanceId, novaInstance.getAccessIPv4());
+					LOG.info("<< Instance {} got IP {}", novaInstanceId, novaInstance.getAddresses());
 				}
 			}
 			
@@ -590,9 +607,12 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 			// Instance number does not meet the requirement. Delete instances
 			// and floating IPs if existing.
 			// Release all resources already allocated.
+			String errorMsg = String.format(
+					"Problem allocating %d instances: Can only get %d instances with IPs while we want %d.",
+					instanceIds.size(), successfulOperationCount, minCount);
 			releaseResources(volumeNumber, volumeSize, floatingIpPool, instanceIds, floatingIps, accumulator);
 			PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
-			throw new UnrecoverableProviderException("Problem allocating instances.", pluginExceptionDetails);
+			throw new UnrecoverableProviderException(errorMsg, pluginExceptionDetails);
 		}
 		else {
 			// Just delete the fail ones.
@@ -688,9 +708,12 @@ public class NovaProvider extends AbstractComputeProvider<NovaInstance, NovaInst
 
 			if (novaInstancesReady.size() < minCount) {
 				// If instances with private IP and volumes do not meet the minCount, delete all of them.
+				String errorMsg = String.format(
+						"Problem allocating %d instances: Can only get %d instances with volumes while we want %d.",
+						instanceIds.size(), novaInstancesReady.size(), minCount);
 				releaseResources(volumeNumber, volumeSize, floatingIpPool, instanceIds, floatingIps, accumulator);
 				PluginExceptionDetails pluginExceptionDetails = new PluginExceptionDetails(accumulator.getConditionsByKey());
-				throw new UnrecoverableProviderException("Problem allocating instances and volumes.", pluginExceptionDetails);
+				throw new UnrecoverableProviderException(errorMsg, pluginExceptionDetails);
 			}
 			else {
 				// Just delete the fail ones.

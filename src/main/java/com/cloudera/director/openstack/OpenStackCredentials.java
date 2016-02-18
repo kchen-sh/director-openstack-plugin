@@ -51,6 +51,5 @@ public class OpenStackCredentials {
 			   identity.equals(cre.getIdentity()) &&
 			   credential.equals(cre.getCredential());
 	}
-	
 }
 

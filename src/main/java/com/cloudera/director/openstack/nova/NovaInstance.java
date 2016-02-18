@@ -216,9 +216,13 @@ public class NovaInstance
 		try {
 			Iterator<Address> iterator = server.getAddresses().values().iterator();
 			Address address = null;
-			if (iterator.hasNext()) {
+			while (iterator.hasNext()) {
+				// Find the first IPv4 address.
 				address = iterator.next();
-				privateIpAddress = InetAddress.getByName(address.getAddr());
+				if (address.getVersion() == 4) {
+					privateIpAddress = InetAddress.getByName(address.getAddr());
+					break;
+				}
 			}
 		} catch (UnknownHostException e) {
 		  throw new IllegalArgumentException("Invalid private IP address", e);
@@ -238,11 +242,19 @@ public class NovaInstance
 		try {
 			Iterator<Address> iterator = server.getAddresses().values().iterator();
 			Address floatingAddress = null;
-			if (iterator.hasNext()) {
-				iterator.next();
-				if (iterator.hasNext()) {
-					floatingAddress = iterator.next();
+			// Find the first IPv4 address.
+			while (iterator.hasNext()) {
+				Address address = iterator.next();
+				if (address.getVersion() == 4) {
+					break;
+				}
+			}
+			// Find the second IPv4 Address.
+			while (iterator.hasNext()) {
+				floatingAddress = iterator.next();
+				if (floatingAddress.getVersion() == 4) {
 					floatingIpAddress = InetAddress.getByName(floatingAddress.getAddr());
+					break;
 				}
 			}
 		} catch (UnknownHostException e) {
