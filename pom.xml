@@ -122,6 +122,11 @@
 			<artifactId>openstack-trove</artifactId>
 			<version>${jclouds.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.jclouds.api</groupId>
+			<artifactId>openstack-cinder</artifactId>
+			<version>${jclouds.version}</version>
+		</dependency>
 
 		<!-- test dependencies -->
 		<dependency>
@@ -148,12 +153,12 @@
 			<version>${logback.version}</version>
 			<scope>test</scope>
 		</dependency>
-               <dependency>
-                        <groupId>ch.qos.logback</groupId>
-                        <artifactId>logback-core</artifactId>
-                        <version>${logback.version}</version>
-                        <scope>test</scope>
-                </dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-core</artifactId>
+			<version>${logback.version}</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<repositories>
@@ -289,7 +294,7 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>${maven-surefire-plugin.version}</version>
 				<configuration>
-					<skip>true</skip>
+					<skip>false</skip>
 					<systemPropertyVariables>
 						<KEYSTONE_ENDPOINT>http://127.0.0.1:5000/v2.0/</KEYSTONE_ENDPOINT>
 						<TENANT_NAME>admin</TENANT_NAME>
@@ -313,6 +318,14 @@
 				<configuration>
 					<excludeFilterFile>findbugs-exclude.xml</excludeFilterFile>
 					<failOnError>false</failOnError>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>1.8</source>
+					<target>1.8</target>
 				</configuration>
 			</plugin>
 		</plugins>

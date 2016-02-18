@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.cloudera.director.openstack.nova;
 
 import com.cloudera.director.spi.v1.compute.ComputeInstanceTemplate.ComputeInstanceTemplateConfigurationPropertyToken;
@@ -104,7 +105,7 @@ public enum NovaInstanceTemplateConfigurationProperty implements ConfigurationPr
 	FLOATING_IP_POOL(new SimpleConfigurationPropertyBuilder()
 			.configKey("floatingIpPoolName")
 			.name("FloatingIP pool name")
-			.defaultValue(null)
+			.defaultValue("")
 			.widget(ConfigurationProperty.Widget.TEXT)
 			.defaultDescription(
 				"The floating IP pool from which to allocate flaoting IP. "+
