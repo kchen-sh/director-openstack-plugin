@@ -52,12 +52,14 @@ public class OpenStackProvider extends AbstractCloudProvider {
 	 * The resource provider metadata.
 	 */
 	private static final List<ResourceProviderMetadata> RESOURCE_PROVIDER_METADATA = featureFlag ? 
-			Collections.unmodifiableList(Arrays.asList(NovaProvider.METADATA, TroveProvider.METADATA)) : Collections.unmodifiableList(Arrays.asList(NovaProvider.METADATA));
+			Collections.unmodifiableList(Arrays.asList(NovaProvider.METADATA, TroveProvider.METADATA)) :
+			Collections.unmodifiableList(Arrays.asList(NovaProvider.METADATA));
 
 	private OpenStackCredentials credentials;
 	private Config openstackConfig;
 
-	protected OpenStackCredentials getOpenStackCredentials(Configured configuration, LocalizationContext localizationContext) {
+	protected OpenStackCredentials getOpenStackCredentials(Configured configuration,
+			LocalizationContext localizationContext) {
 		CredentialsProvider<OpenStackCredentials> provider = new OpenStackCredentialsProvider();
 		OpenStackCredentials credentials = provider.createCredentials(configuration, localizationContext);
 		checkNotNull(credentials, "OpenStackCredentials is null!");
@@ -76,13 +78,15 @@ public class OpenStackProvider extends AbstractCloudProvider {
 			.resourceProviderMetadata(RESOURCE_PROVIDER_METADATA)
 			.build();
 
-	public OpenStackProvider(Configured configuration, Config openstackConfig,LocalizationContext rootLocalizationContext) {
+	public OpenStackProvider(Configured configuration, Config openstackConfig,
+			LocalizationContext rootLocalizationContext) {
 		super(METADATA, rootLocalizationContext);
 		this.openstackConfig = openstackConfig;
 		this.credentials = getOpenStackCredentials(configuration, rootLocalizationContext);
 	}
 
-	protected ConfigurationValidator getResourceProviderConfigurationValidator(ResourceProviderMetadata resourceProviderMetadata) {
+	protected ConfigurationValidator getResourceProviderConfigurationValidator(
+			ResourceProviderMetadata resourceProviderMetadata) {
 		ConfigurationValidator providerSpecificValidator;
 		if (resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId())) {
 			providerSpecificValidator = new NovaProviderConfigurationValidator(credentials);
@@ -97,10 +101,13 @@ public class OpenStackProvider extends AbstractCloudProvider {
 
 	@SuppressWarnings("rawtypes")
 	@Override
-	public ResourceProvider createResourceProvider(String resourceProviderId, Configured configuration) {
-		ResourceProviderMetadata resourceProviderMetadata = getProviderMetadata().getResourceProviderMetadata(resourceProviderId);
+	public ResourceProvider createResourceProvider(String resourceProviderId,
+			Configured configuration) {
+		ResourceProviderMetadata resourceProviderMetadata =
+			getProviderMetadata().getResourceProviderMetadata(resourceProviderId);
 		if (resourceProviderMetadata.getId().equals(NovaProvider.METADATA.getId())) {
-			return new NovaProvider(configuration, this.credentials, this.openstackConfig, getLocalizationContext());
+			return new NovaProvider(configuration, this.credentials, this.openstackConfig,
+				getLocalizationContext());
 		}
 
 		if (resourceProviderMetadata.getId().equals(TroveProvider.METADATA.getId())) {

@@ -220,6 +220,7 @@ public class NovaProviderTest {
 		when(flavor.getId()).thenReturn(DEFAULT_FLAVOR_ID);
 		PagedIterable<Resource> flavorList = PagedIterables.onlyPage(IterableWithMarkers.from(Lists.newArrayList(flavor)));
 		when(flavorApi.list()).thenReturn(flavorList);
+		
 	}
 		
 	@Test
@@ -240,6 +241,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated1 = mock(ServerCreated.class);
 		Address address1 = mock(Address.class);
 		when(address1.getAddr()).thenReturn(DEFAULT_PRIVATE_IP1);
+		when(address1.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses1 = ArrayListMultimap.create();
 		addresses1.put("1", address1);
 		when(servercreated1.getId()).thenReturn(novaInstanceId1);
@@ -256,6 +258,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated2 = mock(ServerCreated.class);
 		Address address2 = mock(Address.class);
 		when(address2.getAddr()).thenReturn(DEFAULT_PRIVATE_IP2);
+		when(address2.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses2 = ArrayListMultimap.create();
 		addresses2.put("1", address2);
 		when(servercreated2.getId()).thenReturn(novaInstanceId2);
@@ -339,6 +342,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated1 = mock(ServerCreated.class);
 		Address address1 = mock(Address.class);
 		when(address1.getAddr()).thenReturn(DEFAULT_PRIVATE_IP1);
+		when(address1.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses1 = ArrayListMultimap.create();
 		addresses1.put("1", address1);
 		when(servercreated1.getId()).thenReturn(novaInstanceId1);
@@ -355,6 +359,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated2 = mock(ServerCreated.class);
 		Address address2 = mock(Address.class);
 		when(address2.getAddr()).thenReturn(DEFAULT_PRIVATE_IP2);
+		when(address2.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses2 = ArrayListMultimap.create();
 		addresses2.put("1", address2);
 		when(servercreated2.getId()).thenReturn(novaInstanceId2);
@@ -397,7 +402,7 @@ public class NovaProviderTest {
 			fail("An exception should have been thrown when we failed to provision at least minCount instances.");
 		} catch (UnrecoverableProviderException e) {
 			LOG.info("Caught: " + e.getMessage());
-			assertThat(e.getMessage()).isEqualTo("Problem allocating instances.");
+			assertThat(e.getMessage()).isEqualTo("Problem allocating 2 instances: Can only get 1 instances with IPs while we want 2.");
 		}
 		
 		//Verify instance creatings was called.
@@ -442,6 +447,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated1 = mock(ServerCreated.class);
 		Address address1 = mock(Address.class);
 		when(address1.getAddr()).thenReturn(DEFAULT_PRIVATE_IP1);
+		when(address1.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses1 = ArrayListMultimap.create();
 		addresses1.put("1", address1);
 		when(servercreated1.getId()).thenReturn(novaInstanceId1);
@@ -458,6 +464,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated2 = mock(ServerCreated.class);
 		Address address2 = mock(Address.class);
 		when(address2.getAddr()).thenReturn(DEFAULT_PRIVATE_IP2);
+		when(address2.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses2 = ArrayListMultimap.create();
 		addresses2.put("1", address2);
 		when(servercreated2.getId()).thenReturn(novaInstanceId2);
@@ -539,6 +546,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated1 = mock(ServerCreated.class);
 		Address address1 = mock(Address.class);
 		when(address1.getAddr()).thenReturn(DEFAULT_PRIVATE_IP1);
+		when(address1.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses1 = ArrayListMultimap.create();
 		addresses1.put("1", address1);
 		when(servercreated1.getId()).thenReturn(novaInstanceId1);
@@ -658,6 +666,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated1 = mock(ServerCreated.class);
 		Address address1 = mock(Address.class);
 		when(address1.getAddr()).thenReturn(DEFAULT_PRIVATE_IP1);
+		when(address1.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses1 = ArrayListMultimap.create();
 		addresses1.put("1", address1);
 		when(servercreated1.getId()).thenReturn(novaInstanceId1);
@@ -674,6 +683,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated2 = mock(ServerCreated.class);
 		Address address2 = mock(Address.class);
 		when(address2.getAddr()).thenReturn(DEFAULT_PRIVATE_IP2);
+		when(address2.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses2 = ArrayListMultimap.create();
 		addresses2.put("1", address2);
 		when(servercreated2.getId()).thenReturn(novaInstanceId2);
@@ -806,7 +816,7 @@ public class NovaProviderTest {
 			fail("An exception should have been thrown when we failed to provision at least minCount instances.");
 		} catch (UnrecoverableProviderException e) {
 			LOG.info("Caught: " + e.getMessage());
-			assertThat(e.getMessage()).isEqualTo("Problem allocating instances and volumes.");
+			assertThat(e.getMessage()).isEqualTo("Problem allocating 2 instances: Can only get 1 instances with volumes while we want 2.");
 		}
 		
 		//Verify instance creatings was called.
@@ -865,6 +875,7 @@ public class NovaProviderTest {
 		ServerCreated servercreated1 = mock(ServerCreated.class);
 		Address address1 = mock(Address.class);
 		when(address1.getAddr()).thenReturn(DEFAULT_PRIVATE_IP1);
+		when(address1.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses1 = ArrayListMultimap.create();
 		addresses1.put("1", address1);
 		when(servercreated1.getId()).thenReturn(novaInstanceId1);
@@ -967,6 +978,7 @@ public class NovaProviderTest {
 
 		Address address1 = mock(Address.class);
 		when(address1.getAddr()).thenReturn(DEFAULT_PRIVATE_IP1);
+		when(address1.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses1 = ArrayListMultimap.create();
 		addresses1.put("1", address1);
 
@@ -976,6 +988,7 @@ public class NovaProviderTest {
 		
 		Address address2 = mock(Address.class);
 		when(address2.getAddr()).thenReturn(DEFAULT_PRIVATE_IP2);
+		when(address2.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses2 = ArrayListMultimap.create();
 		addresses2.put("1", address2);
 
@@ -1028,6 +1041,7 @@ public class NovaProviderTest {
 
 		Address address1 = mock(Address.class);
 		when(address1.getAddr()).thenReturn(DEFAULT_PRIVATE_IP1);
+		when(address1.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses1 = ArrayListMultimap.create();
 		addresses1.put("1", address1);
 
@@ -1266,8 +1280,10 @@ public class NovaProviderTest {
 
 		Address address1 = mock(Address.class);
 		when(address1.getAddr()).thenReturn(DEFAULT_PRIVATE_IP1);
+		when(address1.getVersion()).thenReturn(4);
 		Address floatingAddress1 = mock(Address.class);
 		when(floatingAddress1.getAddr()).thenReturn(DEFAULT_FLOATING_IP1);
+		when(floatingAddress1.getVersion()).thenReturn(4);
 		Multimap<String, Address> addresses1 = ArrayListMultimap.create();
 		addresses1.put("1", address1);
 		addresses1.put("2", floatingAddress1);
