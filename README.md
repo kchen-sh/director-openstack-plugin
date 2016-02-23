@@ -65,8 +65,8 @@ hostname $hostn
    ```python
       def enable_root(cls, root_password=None):
         ...
-        user.password = root_password or utils.generate_ramdom_password()
-        #user.password = "root" or utils.generate_ramdom_password()
+        #user.password = root_password or utils.generate_ramdom_password()
+        user.password = "root" or utils.generate_ramdom_password()
         ...
    ```
 
