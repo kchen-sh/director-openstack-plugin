@@ -58,7 +58,7 @@ hostname $hostn
    trove version is incompatible with cloudera director api. If the user wants
    to creat external database, he/she can hack trove python code to make sure that 
    command **trove root-enable instance_id** will return a constant value intead of
-   a random value as password.
+   a random value as password. 
 
    e.g.
    vim /trove/guestagent/datastore/mysql/service.py
@@ -69,6 +69,11 @@ hostname $hostn
         user.password = "root" or utils.generate_ramdom_password()
         ...
    ```
+
+   Currently we disable the trove in this plugin. If the user want to take a try,
+   he/she also need enable int this plugin. you can set system environment value
+   TROVE_ENABLE=true or modify the java code in OpenStackProvider.java directly
+
 
 # Platform Requirements
 To use OpenStack plugin, the user needs to have an OpenStack setup, which is
