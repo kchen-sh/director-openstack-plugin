@@ -57,7 +57,7 @@ hostname $hostn
    not have an API to set a specified password for root database user. So the current 
    trove version is incompatible with cloudera director api. If the user wants
    to creat external database, he/she can hack trove python code to make sure that 
-   command ** trove root-enable <instance_id> ** will return a constant value intead of
+   command trove root-enable <instance_id> will return a constant value intead of
    a random value as password.
 
    e.g.
