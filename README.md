@@ -10,7 +10,7 @@ this Cloudera Manager.
 # Supported Features
 Currently, OpenStack plugin can support below features:
 1. Create Nova instances using the credentials and image/network/security
-   groups assinged.
+   groups assigned.
 2. In a nova-network setup, allocate floating IPs from a specified floating IP
    pool, and associate to the specified instances.
 3. Allocate cinder volumes, and attach them to specified instances.
@@ -36,14 +36,14 @@ Currently, OpenStack plugin can support below features:
      hostname on boot to the value recorded in DNS server. This can be achieved
      by adding below lines to the end of /etc/rc.local file in the image.
 
-```bash
-MYIP=`ifconfig | awk '/inet addr/{print substr($2,6)}'`
-array=(${MYIP// /\n})
-add1=${array[0]}
-hn=(${add1//\./-})
-hostn=host-$hn.openstacklocal
-hostname $hostn
-```
+     ```bash
+     MYIP=`ifconfig | awk '/inet addr/{print substr($2,6)}'`
+     array=(${MYIP// /\n})
+     add1=${array[0]}
+     hn=(${add1//\./-})
+     hostn=host-$hn.openstacklocal
+     hostname $hostn
+     ```
 
 2. This OpenStack plugin does not support Neuton floating IP APIs yet. So if
    the user is using Neutron, this plugin cannot support floating IP operations
@@ -52,20 +52,31 @@ hostname $hostn
    node and cluster without floating IP first, and associate floating IPs on
    the Cloud Provider dashboard.
 
-3. This OpenStack plugin does not support creating external database for 
-   cloudera manager completely. Trove (Database as a Service for OpenStack) does 
-   not have an API to set a specified password for root database user. So the current 
-   trove version is incompatible with cloudera director api. If the user wants
-   to creat external database, he/she can hack trove python code to make sure that 
-   command **trove root-enable instance_id** will return a constant value intead of
-   a random value as password. 
+3. Currently Cloudera Director hard-codes the disk device characters to 
+   /dev/xvd* (This is inherited from AWS, where the instances are based on Xen,
+   and have disks in /dev/xvd*. However, this became a bug for virtual machines
+   based on KVM.), and the bootstrap script will encounter problem on OpenStack
+   environments based on KVM. The user based on KVM has to do below things to
+   avoid this issue:
+   * Use Cloudera Director 1.5.0 instead of latest 2.0, until the issue was
+     resolved.
+   * Use a specific image for Cloudera Manager and cluster instances. This
+     image can auto-resize the instance root partition to the whole disk.
+     Please refer to the Fast Guide how to build such an image.
 
-   e.g.
-   vim /trove/guestagent/datastore/mysql/service.py
+4. This OpenStack plugin does not completely support creating external database
+   (Trove support) for Cloudera Manager. Trove (Database as a Service for OpenStack)
+   does not have an API to set a specified password for root database user. So the
+   current trove version is incompatible with Cloudera Director API. If the user
+   wants to create an external database, he/she has to hack trove python code to
+   make sure that command trove root-enable instance_id will return a constant
+   value instead of a random value as password. This can be done via editing file
+   trove/guestagent/datastore/mysql/service.py in trove library directory and modify:
    ```python
       def enable_root(cls, root_password=None):
         ...
-        #user.password = root_password or utils.generate_ramdom_password()
+        # change below line to the following line.
+        # user.password = root_password or utils.generate_ramdom_password()
         user.password = "root" or utils.generate_ramdom_password()
         ...
    ```
@@ -93,14 +104,15 @@ agent, and other Big Data services should also be allowed in the security
 groups for the corresponding roles.
 
 # Prerequisites
-1. An instance running Cloudera Director
+1. An instance running Cloudera Director.
    The user needs a server (could be a baremetal machine, or a virtual
    instance) to run Cloudera Director service. This server should be able
    to connect the instances in the OpenStack cloud by private IP addresses.
-2. java-1.8.0-openjdk or later version is required on the Cloudera Director
-   server to support OpenStack plugin.
+2. java-1.8.0-openjdk (CentOS, RedHat) or openjdk-8-jdk (Ubuntu) or their
+   later version is required on the Cloudera Director server to support
+   OpenStack plugin.
 3. The user should know below information about the OpenStack platform.
-   * KeyStone endpoint, a URL like "http://172.16.5.20:5000/v2.0/" format.
+   * KeyStone endpoint, a URL like "http://172.16.0.1:5000/v2.0/" format.
    * User name
    * Tenant name
    * User password
@@ -115,23 +127,25 @@ groups for the corresponding roles.
      chosen images.
 
 # How to Use OpenStack Plugin
-Below is a quick start to tell how to deploy Cloudera Director, and 
+Below is a quick start to tell how to deploy Cloudera Director and enable
+OpenStack Plugin, and use it to deploy a Cloudera cluster:
+
 1. Enable OpenStack Plugin
    * Download plugin source and compile the plugin by mvn. 
-```bash
-git clone https://github.com/cloudera/director-openstack-plugin/
-cd director-openstack-plugin && mvn clean package
-```
+     ```bash
+     git clone https://github.com/cloudera/director-openstack-plugin/
+     cd director-openstack-plugin && mvn clean package
+     ```
      The jar file will be generated at path
      director-openstack-plugin/target/openstack-1.0.0-SNAPSHOT.jar.
    * Upload the jar file to Cloudera Director server, and put it in directory
      /var/lib/cloudera-director-plugins/openstack-provider-1.0.0/openstack-provider-1.0.0.jar
    * Restart Cloudera Director service by run below command on Cloudera
      Director server.
-```bash
-sudo chown cloudera-director:cloudera-director /var/lib/cloudera-director-plugins/openstack-provider-1.0.0/openstack-provider-1.0.0.jar
-sudo service cloudera-director-server restart
-```
+     ```bash
+     sudo chown cloudera-director:cloudera-director /var/lib/cloudera-director-plugins/openstack-provider-1.0.0/openstack-provider-1.0.0.jar
+     sudo service cloudera-director-server restart
+     ```
 
 2. Login Cloudera Director Dashboard
    * Open a browser and input the Cloudera Director URL:
@@ -141,14 +155,14 @@ sudo service cloudera-director-server restart
 3. Add an User Environment
    * Click "Add Environment", and select "OpenStack" for "Cloud Provider".
    * Input the information required and click "Continue":
-      ** Environment Name
-      ** KeyStone Endpoint
-      ** OpenStack Tenant Name
-      ** OpenStack User Name
-      ** OpenStack User Password
-      ** Region
-      ** Instance SSH User Name
-      ** Instance SSH Private Key
+      * Environment Name
+      * KeyStone Endpoint
+      * OpenStack Tenant Name
+      * OpenStack User Name
+      * OpenStack User Password
+      * Region
+      * Instance SSH User Name
+      * Instance SSH Private Key
 
 4. Create Cloudera Manager Instance
    * In the environment page, click the pulldown menu, and select "Add Cloudera
@@ -156,21 +170,21 @@ sudo service cloudera-director-server restart
    * Input Cloudera Manager name.
    * Click the pulldown menu to create a new instance template.
    * Put in the information required by instance template:
-      ** Instance template name
-      ** Instance flavor name (the selected flavor should at least have 8GB
-         memory size, recommended >12GB)
-      ** Image ID
-      ** Security group names
-      ** Network ID
-      ** Keypair name
+      * Instance template name
+      * Instance flavor name (the selected flavor should at least have 8GB
+        memory size, recommended >12GB)
+      * Image ID
+      * Security group names
+      * Network ID
+      * Keypair name
     * The user may also need to put in below additional information:
-      ** Instance name prefix
-      ** Availability zone
-      ** Floating IP pool name
-      ** volume number
-      ** volume size
-      ** SSH user name
-      ** Bootstrap script
+      * Instance name prefix
+      * Availability zone
+      * Floating IP pool name
+      * volume number
+      * volume size
+      * SSH user name
+      * Bootstrap script
     * Save the template, and click "Continue" to create the Cloudera Manager
       instance. Wait until the process succeed and Cloudera Manager become
       ready.
@@ -194,57 +208,63 @@ sudo service cloudera-director-server restart
      file /etc/yum.conf, so that they can install packages from internet.
    * In the Cloudera Director server, add the proxy info to director service by
      below commands:
-```bash
-echo lp.proxy.http.host: <proxy_host> >> /etc/cloudera-director-server/application.properties
-echo lp.proxy.http.port: <port> >> /etc/cloudera-director-server/application.properties
-service cloudera-director-server restart
-```
+     ```bash
+     echo lp.proxy.http.host: <proxy_host> >> /etc/cloudera-director-server/application.properties
+     echo lp.proxy.http.port: <port> >> /etc/cloudera-director-server/application.properties
+     service cloudera-director-server restart
+     ```
    * After step 4 and before step 5, login Cloudera Manager UI by URL
      http://<cloudera manager IP>:7180 and username/password as "admin/admin",
      and change the proxy setup by:
-     ** Click Administration->Settings
-     ** Search "proxy"
-     ** Set "Proxy Server" and "Proxy Port" value to your proxy, and click "Save Changes"
-     ** SSH into Cloudera Manager instance, and restart Cloudera Manager Server
-        service by below commands:
-```bash
-sudo service cloudera-scm-server restart
-```
+     * Click Administration->Settings
+     * Search "proxy"
+     * Set "Proxy Server" and "Proxy Port" value to your proxy, and click "Save Changes"
+     * SSH into Cloudera Manager instance, and restart Cloudera Manager Server
+       service by below commands:
+       ```bash
+       sudo service cloudera-scm-server restart
+       ```
 
 # Fast Guide
-1. How to setup a Cloudera Director server
+1. How to build an auto-resize root partition image
+   Here we choose CentOS 6.7 as an example. You can download the original
+   image from (http://cloud.centos.org/centos/6/images/CentOS-6-x86_64-GenericCloud-1509.qcow2).
+   Use the fresh OS image to launch a VM instance, SSH into the instance and
+   su to root user to run below command lines:
+
+   ```bash
+   # Set proxy if needed
+   # export http_proxy=http://<proxy_host>:<port>/
+   # export https_proxy=http://<proxy_host>:<port>/
+   # echo proxy=http://<proxy_host>:<port>/ >> /etc/yum.conf
+
+   yum update -y
+   yum install -y epel-release
+   # If access to internet via https is limited, replace the https to http in repo files.
+   # sed -i "s/https/http/g" /etc/yum.repos.d/*.repo
+   yum install -y nscd wget cloud-init cloud-utils cloud-utils-growpart dracut-modules-growroot
+   rpm -qa kernel | perl -pe 's/^kernel-//'  | xargs -I {} dracut -f /boot/initramfs-{}.img {}
+   touch /root/firstrun
+   ```
+   Now you can keep the instance snapshot as an auto-resize image for future usage.
+
+2. How to setup a Cloudera Director server
    You can easily create a VM instance runing Cloudera Director service in
-   your OpenStack platform from a fresh OS image. Here we choose CentOS6.7
-   as an example. You can download the original image from 
-   (http://cloud.centos.org/centos/6/images/CentOS-6-x86_64-GenericCloud-1509.qcow2)
-   After use the image to launch the instance, SSH into the instance and su
-   to root user to run below command lines:
+   your OpenStack platform from a fresh OS image. We still use CentOS 6.7 as an
+   example. After step 1 above, continue to run below command lines:
 
-```bash
-# Set proxy if needed
-# export http_proxy=http://<proxy_host>:<port>/
-# export https_proxy=http://<proxy_host>:<port>/
-# echo proxy=http://<proxy_host>:<port>/ >> /etc/yum.conf
+   ```bash
+   wget -O /etc/yum.repos.d/cloudera-director.repo http://archive.cloudera.com/director/redhat/6/x86_64/director/cloudera-director.repo
+   wget -O /etc/yum.repos.d/cloudera-cdh5.repo http://archive.cloudera.com/cdh5/redhat/6/x86_64/cdh/cloudera-cdh5.repo
+   wget -O /etc/yum.repos.d/cloudera-manager.repo http://archive.cloudera.com/cm5/redhat/6/x86_64/cm/cloudera-manager.repo
+   # sed -i "s/https/http/g" /etc/yum.repos.d/*.repo
+   yum install -y java-1.8.0-openjdk cloudera-director-server cloudera-director-client
+   # Add proxy info in Cloudera Director configuration file.
+   # echo lp.proxy.http.host: <proxy_host> >> /etc/cloudera-director-server/application.properties
+   # echo lp.proxy.http.port: <port> >> /etc/cloudera-director-server/application.properties
 
-yum update -y
-yum install -y epel-release
-# If access to internet via https is limited, replace the https to http in repo files.
-# sed -i "s/https/http/g" /etc/yum.repos.d/*.repo
-yum install -y nscd wget cloud-init cloud-utils cloud-utils-growpart dracut-modules-growroot
-rpm -qa kernel | perl -pe 's/^kernel-//'  | xargs -I {} dracut -f /boot/initramfs-{}.img {}
-touch /root/firstrun
-
-wget -O /etc/yum.repos.d/cloudera-director.repo http://archive.cloudera.com/director/redhat/6/x86_64/director/cloudera-director.repo
-wget -O /etc/yum.repos.d/cloudera-cdh5.repo http://archive.cloudera.com/cdh5/redhat/6/x86_64/cdh/cloudera-cdh5.repo
-wget -O /etc/yum.repos.d/cloudera-manager.repo http://archive.cloudera.com/cm5/redhat/6/x86_64/cm/cloudera-manager.repo
-# sed -i "s/https/http/g" /etc/yum.repos.d/*.repo
-yum install -y java-1.8.0-openjdk cloudera-director-server cloudera-director-client
-# Add proxy info in Cloudera Director configuration file.
-# echo lp.proxy.http.host: <proxy_host> >> /etc/cloudera-director-server/application.properties
-# echo lp.proxy.http.port: <port> >> /etc/cloudera-director-server/application.properties
-
-service cloudera-director-server restart
-```
+   service cloudera-director-server restart
+   ```
    Now you can use this instance as the Cloudera Director server. You can also
    keep the instance snapshot as Cloudera Director image for future usage.
 
