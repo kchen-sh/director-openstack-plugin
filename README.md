@@ -52,6 +52,29 @@ hostname $hostn
    node and cluster without floating IP first, and associate floating IPs on
    the Cloud Provider dashboard.
 
+3. This OpenStack plugin does not support creating external database for 
+   cloudera manager completely. Trove (Database as a Service for OpenStack) does 
+   not have an API to set a specified password for root database user. So the current 
+   trove version is incompatible with cloudera director api. If the user wants
+   to creat external database, he/she can hack trove python code to make sure that 
+   command **trove root-enable instance_id** will return a constant value intead of
+   a random value as password. 
+
+   e.g.
+   vim /trove/guestagent/datastore/mysql/service.py
+   ```python
+      def enable_root(cls, root_password=None):
+        ...
+        #user.password = root_password or utils.generate_ramdom_password()
+        user.password = "root" or utils.generate_ramdom_password()
+        ...
+   ```
+
+   Currently we disable the trove in this plugin. If the user want to take a try,
+   he/she also need enable int this plugin. you can set system environment value
+   TROVE_ENABLE=true or modify the java code in OpenStackProvider.java directly
+
+
 # Platform Requirements
 To use OpenStack plugin, the user needs to have an OpenStack setup, which is
 capable of running the instances to be allocated for the Cloudera Manager and
