@@ -132,16 +132,19 @@ OpenStack Plugin, and use it to deploy a Cloudera cluster:
 
 1. Enable OpenStack Plugin
    * Download plugin source and compile the plugin by mvn. 
+
      ```bash
      git clone https://github.com/cloudera/director-openstack-plugin/
      cd director-openstack-plugin && mvn clean package
      ```
+
      The jar file will be generated at path
      director-openstack-plugin/target/openstack-1.0.0-SNAPSHOT.jar.
    * Upload the jar file to Cloudera Director server, and put it in directory
      /var/lib/cloudera-director-plugins/openstack-provider-1.0.0/openstack-provider-1.0.0.jar
    * Restart Cloudera Director service by run below command on Cloudera
      Director server.
+
      ```bash
      sudo chown cloudera-director:cloudera-director /var/lib/cloudera-director-plugins/openstack-provider-1.0.0/openstack-provider-1.0.0.jar
      sudo service cloudera-director-server restart
@@ -208,6 +211,7 @@ OpenStack Plugin, and use it to deploy a Cloudera cluster:
      file /etc/yum.conf, so that they can install packages from internet.
    * In the Cloudera Director server, add the proxy info to director service by
      below commands:
+
      ```bash
      echo lp.proxy.http.host: <proxy_host> >> /etc/cloudera-director-server/application.properties
      echo lp.proxy.http.port: <port> >> /etc/cloudera-director-server/application.properties
@@ -221,6 +225,7 @@ OpenStack Plugin, and use it to deploy a Cloudera cluster:
      * Set "Proxy Server" and "Proxy Port" value to your proxy, and click "Save Changes"
      * SSH into Cloudera Manager instance, and restart Cloudera Manager Server
        service by below commands:
+
        ```bash
        sudo service cloudera-scm-server restart
        ```
