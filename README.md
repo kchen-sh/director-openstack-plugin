@@ -1,13 +1,13 @@
-## OpenStack plugin for Cloudera Director
+# OpenStack plugin for Cloudera Director
 
-# What is OpenStack Plugin for
+## What is OpenStack Plugin for
 OpenStack plugin is to let Cloudera Director be able to deploy and manage
 clusters on a given OpenStack platform. By OpenStack plugin, the user can
 customize his/her own environment configurations following his/her OpenStack
 setup, and create Cloudera Manager instance as well as a Cloudera cluster with
 this Cloudera Manager.
 
-# Supported Features
+## Supported Features
 Currently, OpenStack plugin can support below features:
 1. Create Nova instances using the credentials and image/network/security
    groups assigned.
@@ -16,7 +16,7 @@ Currently, OpenStack plugin can support below features:
 3. Allocate cinder volumes, and attach them to specified instances.
 4. Search or release resources by given IDs.
 
-# Known Limitations
+## Known Limitations
 1. Users need to ensure each of his instances should be able to connect to the
    other instances via hostname, for instances in a Cloudera cluster is using
    hostnames to connect to other instances. This can be divided into two cases:
@@ -64,7 +64,15 @@ Currently, OpenStack plugin can support below features:
      image can auto-resize the instance root partition to the whole disk.
      Please refer to the Fast Guide how to build such an image.
 
-4. This OpenStack plugin does not completely support creating external database
+4. Cloudera Director will need to reboot the created instances to finish some
+   configuration work. However, in some versions of OpenStack, the flavor with
+   ephemeral disk may not bootup properly after create partition on the ephemeral
+   disk, due to some file system check issue. Thus, it is highly recommended to
+   use non-ephemeral-disk flavors to create the instances. The user can check the
+   flavor details on his cloud provider dashboard or terminal. If the fit
+   flavor does not exist, create one.
+
+5. This OpenStack plugin does not completely support creating external database
    (Trove support) for Cloudera Manager. Trove (Database as a Service for OpenStack)
    does not have an API to set a specified password for root database user. So the
    current trove version is incompatible with Cloudera Director API. If the user
@@ -86,7 +94,7 @@ Currently, OpenStack plugin can support below features:
    TROVE_ENABLE=true or modify the java code in OpenStackProvider.java directly
 
 
-# Platform Requirements
+## Platform Requirements
 To use OpenStack plugin, the user needs to have an OpenStack setup, which is
 capable of running the instances to be allocated for the Cloudera Manager and
 roles in Cloudera cluster, as well as the volumes, floating IPs, and other
@@ -103,7 +111,7 @@ Manager dashboard. The ports for Cloudera Manager server, Cloudera Manager
 agent, and other Big Data services should also be allowed in the security
 groups for the corresponding roles.
 
-# Prerequisites
+## Prerequisites
 1. An instance running Cloudera Director.
    The user needs a server (could be a baremetal machine, or a virtual
    instance) to run Cloudera Director service. This server should be able
@@ -126,7 +134,7 @@ groups for the corresponding roles.
    * User names of the instances to be created. They are determined by the
      chosen images.
 
-# How to Use OpenStack Plugin
+## How to Use OpenStack Plugin
 Below is a quick start to tell how to deploy Cloudera Director and enable
 OpenStack Plugin, and use it to deploy a Cloudera cluster:
 
@@ -188,9 +196,10 @@ OpenStack Plugin, and use it to deploy a Cloudera cluster:
       * volume size
       * SSH user name
       * Bootstrap script
-    * Alternatively the user can click the pulldown menu to create DB Server 
-      Instance instead of embedded DB.
-    * Put in the information required by DB Server
+    * If the user enable Trove support (please refer to section "Known
+      Limitations"), alternatively the user can click the pulldown menu to
+      select "Create DB Server Instance" instead of "Embedded DB" and put in
+      below information required by DB Server to enable a CM node with Trove:
       * DB Name
       * Master username
       * Master user password (Referring to Known Limitations, currently the user 
@@ -240,7 +249,7 @@ OpenStack Plugin, and use it to deploy a Cloudera cluster:
        sudo service cloudera-scm-server restart
        ```
 
-# Fast Guide
+## Fast Guide
 1. How to build an auto-resize root partition image
    Here we choose CentOS 6.7 as an example. You can download the original
    image from (http://cloud.centos.org/centos/6/images/CentOS-6-x86_64-GenericCloud-1509.qcow2).
