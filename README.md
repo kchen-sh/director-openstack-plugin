@@ -188,6 +188,16 @@ OpenStack Plugin, and use it to deploy a Cloudera cluster:
       * volume size
       * SSH user name
       * Bootstrap script
+    * Alternatively the user can click the pulldown menu to create DB Server 
+      Instance instead of embedded DB.
+    * Put in the information required by DB Server
+      * DB Name
+      * Master username
+      * Master user password (Referring to Known Limitations, currently the user 
+        have to input a constant value)
+      * DB engine
+      * Flavor ID
+      * Volume Size
     * Save the template, and click "Continue" to create the Cloudera Manager
       instance. Wait until the process succeed and Cloudera Manager become
       ready.
